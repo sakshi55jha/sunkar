@@ -51,7 +51,10 @@ export async function* executeSunkarPipelineStream(prompt: string) {
       yield { type: "text", data: chunkText };
     }
 
-    yield { type: "complete", data: {} };
+    yield { type: "complete", data: {
+      storyId: `skr_${Math.random().toString(36).slice(2, 9)}`, 
+      generatedAt: new Date().toISOString()
+    } };
 
   } catch (error) {
     console.error("❌ AI Error:", error);

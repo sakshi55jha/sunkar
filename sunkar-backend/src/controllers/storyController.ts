@@ -1,9 +1,11 @@
 import type { Request, Response } from "express";
 import prisma from "../prisma";
-import {
-  executeSunkarPipeline,
-  executeSunkarPipelineStream,
-} from "../services/aiService";
+import { executeSunkarPipelineStream } from "../services/aiService";
+
+/**
+ * 1. NORMAL HANDLER (NON-STREAMING)
+ * Used when you want the full JSON response at once.
+ */
 
 export async function generateStoryHandler(req: Request, res: Response) {
   try {
@@ -13,66 +15,103 @@ export async function generateStoryHandler(req: Request, res: Response) {
       return res.status(400).json({ error: "prompt & userId required" });
     }
 
+    // Ensure User exists in DB
     await prisma.user.upsert({
       where: { id: String(userId) },
       update: {},
       create: { id: String(userId) },
     });
 
-    const { title, text } = await executeSunkarPipeline(prompt);
+    let fullText = "";
+    let storyIdFromAI = "";
 
+    // --- THE FIX: We must loop through the generator to "collect" the full string ---
+    for await (const chunk of executeSunkarPipelineStream(prompt)) {
+      if (chunk.type === "text") {
+        fullText += chunk.data;
+      }
+      if (chunk.type === "complete") {
+        storyIdFromAI = chunk.data.storyId;
+      }
+    }
+
+    // Extract a simple title from the first line or use a fallback
+    const titleLine = fullText.split('\n')[0].replace(/\*/g, '').trim();
+    const finalTitle = titleLine.length < 50 ? titleLine : "A New Confession";
+
+    // Now we have the FULL text, we can save to Prisma
     const story = await prisma.story.create({
       data: {
         originalPrompt: prompt,
-        generatedTitle: title,
-        generatedStory: text,
+        generatedTitle: finalTitle,
+        generatedStory: fullText,
         userId: String(userId),
       },
     });
 
-    res.json({ storyId: story.id, title, text });
+    res.json({ storyId: story.id, title: finalTitle, text: fullText });
   } catch (err: any) {
+    console.error("❌ Error in generateStoryHandler:", err);
     res.status(500).json({ error: err.message });
   }
 }
 
-// STREAMING (FIXED)
+/**
+ * 2. STREAMING HANDLER
+ * Used for the ChatGPT-style typing effect in the frontend.
+ */
 export async function generateStoryStreamHandler(req: Request, res: Response): Promise<void> {
-    console.log("🏁 Handler Started: generateStoryStreamHandler");
-    try {
-        const { prompt, userId } = req.body;
-        console.log(`📝 Data Received - User: ${userId}, Prompt: ${prompt?.substring(0, 20)}...`);
+  console.log("🏁 Handler Started: generateStoryStreamHandler");
+  try {
+    const { prompt, userId } = req.body;
 
-        if (!prompt || !userId) {
-            console.log("❌ Missing fields: prompt or userId");
-            res.status(400).json({ error: "Missing prompt or userId" });
-            return;
-        }
-
-        console.log("🔍 Checking/Upserting User in DB...");
-        await prisma.user.upsert({
-            where: { id: String(userId) },
-            update: {},
-            create: { id: String(userId) }
-        });
-        console.log("✅ User ready.");
-
-        // SSE Setup
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        console.log("📡 SSE Headers Set. Starting AI Stream...");
-
-        for await (const chunk of executeSunkarPipelineStream(prompt)) {
-            console.log(`✨ AI Chunk Received: ${chunk.type}`);
-            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-        }
-
-        console.log("🏁 Stream Finished Successfully.");
-        res.end();
-    } catch (err) {
-        console.error("🔥 CRASH IN STREAM HANDLER:", err);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Internal Crash" });
-        }
+    if (!prompt || !userId) {
+      res.status(400).json({ error: "Missing prompt or userId" });
+      return;
     }
+
+    await prisma.user.upsert({
+      where: { id: String(userId) },
+      update: {},
+      create: { id: String(userId) }
+    });
+
+    // --- PRODUCTION HEADERS ---
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering
+
+    let fullTextForDB = "";
+
+    // Stream to the frontend AND collect for the database simultaneously
+    for await (const chunk of executeSunkarPipelineStream(prompt)) {
+      if (chunk.type === 'text') {
+        fullTextForDB += chunk.data;
+      }
+      
+      // Write to the HTTP response stream
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    }
+
+    // --- THE FIX: Save to DB after the stream finishes ---
+    const titleLine = fullTextForDB.split('\n')[0].replace(/\*/g, '').trim();
+    
+    await prisma.story.create({
+      data: {
+        originalPrompt: prompt,
+        generatedTitle: titleLine || "Streamed Story",
+        generatedStory: fullTextForDB,
+        userId: String(userId),
+      },
+    });
+
+    console.log("💾 Story successfully saved to database.");
+    res.end();
+  } catch (err) {
+    console.error("🔥 CRASH IN STREAM HANDLER:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
 }
