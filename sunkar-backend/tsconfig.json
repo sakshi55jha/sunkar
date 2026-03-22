@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "ESNext",
+    "lib": [
+      "ESNext"
+    ],
+    "jsx": "react-jsx",
+    /* Modules */
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    /* Emit */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    /* Type Checking */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    /* Completeness */
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
