@@ -158,3 +158,24 @@ export async function clearSessionHandler(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+export const loadSessionHandler = (req: Request, res: Response) => {
+  const { sessionId, messages } = req.body;
+  if (!sessionId || !messages) {
+    return res.status(400).json({ error: "sessionId and messages required" });
+  }
+
+  // Rebuild backend memory from the messages array sent by frontend
+  // Clear existing and re-add each message pair
+  clearSession(sessionId);
+
+  messages.forEach((msg: { role: string; content: string }) => {
+    addToHistory(
+      sessionId,
+      msg.role as "user" | "model",
+      msg.content
+    );
+  });
+
+  res.json({ success: true });
+};

@@ -28,7 +28,7 @@ function getHistory(sessionId: string): Message[] {
   return sessionHistories.get(sessionId)!;
 }
 
-function addToHistory(sessionId: string, role: "user" | "model", text: string) {
+export function addToHistory(sessionId: string, role: "user" | "model", text: string) {
   const history = getHistory(sessionId);
   history.push({ role, parts: [{ text }] });
 

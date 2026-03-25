@@ -5,7 +5,9 @@ import {
   generateStoryHandler,
   generateStoryStreamHandler,
   getHistoryHandler,
-  clearSessionHandler
+  clearSessionHandler,
+  loadSessionHandler,
+  addToHistory   
 } from "./controllers/storyController";
 
 const app = express();
@@ -35,11 +37,8 @@ app.get("/api/stories/history", getHistoryHandler);
 app.post('/api/stories/generate', generateStoryHandler);
 app.post('/api/stories/generate-stream', generateStoryStreamHandler);
 app.post("/api/stories/clear-session", clearSessionHandler);
+app.post("/api/stories/load-session", loadSessionHandler);
 
-console.log("🚀 Routes Active!");
-app.post('/ping', (req, res) => {
-  res.send('pong');
-});
 
 app.listen(5000, () => {
   console.log("Server running on port 5000");
