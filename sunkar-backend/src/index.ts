@@ -4,6 +4,8 @@ import express from "express";
 import {
   generateStoryHandler,
   generateStoryStreamHandler,
+  getHistoryHandler,
+  clearSessionHandler
 } from "./controllers/storyController";
 
 const app = express();
@@ -28,10 +30,13 @@ app.get("/", (_, res) => {
 });
 
 console.log("✅ Registering Routes...");
+app.get("/api/stories/history", getHistoryHandler); 
+
 app.post('/api/stories/generate', generateStoryHandler);
 app.post('/api/stories/generate-stream', generateStoryStreamHandler);
-console.log("🚀 Routes Active!");
+app.post("/api/stories/clear-session", clearSessionHandler);
 
+console.log("🚀 Routes Active!");
 app.post('/ping', (req, res) => {
   res.send('pong');
 });

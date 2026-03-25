@@ -1,106 +1,87 @@
 import type { Request, Response } from "express";
 import prisma from "../prisma";
-import { executeSunkarPipelineStream } from "../services/aiService";
+import { executeSunkarPipelineStream, clearSession } from "../services/aiService";
 
 /**
- * 1. NORMAL HANDLER (NON-STREAMING)
- * Used when you want the full JSON response at once.
+ * 1. GET HISTORY HANDLER
+ * Fills the Sidebar with stories from the DB.
  */
-
-export async function generateStoryHandler(req: Request, res: Response) {
+export async function getHistoryHandler(req: Request, res: Response) {
   try {
-    const { prompt, userId } = req.body;
-
-    if (!prompt || !userId) {
-      return res.status(400).json({ error: "prompt & userId required" });
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
     }
 
-    // Ensure User exists in DB
-    await prisma.user.upsert({
-      where: { id: String(userId) },
-      update: {},
-      create: { id: String(userId) },
-    });
-
-    let fullText = "";
-    let storyIdFromAI = "";
-
-    // --- THE FIX: We must loop through the generator to "collect" the full string ---
-    for await (const chunk of executeSunkarPipelineStream(prompt)) {
-      if (chunk.type === "text") {
-        fullText += chunk.data;
-      }
-      if (chunk.type === "complete") {
-        storyIdFromAI = chunk.data.storyId;
-      }
-    }
-
-    // Extract a simple title from the first line or use a fallback
-    const titleLine = fullText.split('\n')[0].replace(/\*/g, '').trim();
-    const finalTitle = titleLine.length < 50 ? titleLine : "A New Confession";
-
-    // Now we have the FULL text, we can save to Prisma
-    const story = await prisma.story.create({
-      data: {
-        originalPrompt: prompt,
-        generatedTitle: finalTitle,
-        generatedStory: fullText,
-        userId: String(userId),
+    const stories = await prisma.story.findMany({
+      where: { userId: String(userId) },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        generatedTitle: true,
       },
     });
 
-    res.json({ storyId: story.id, title: finalTitle, text: fullText });
+    return res.json(stories);
   } catch (err: any) {
-    console.error("❌ Error in generateStoryHandler:", err);
-    res.status(500).json({ error: err.message });
+    console.error("History Fetch Error", err);
+    return res.status(500).json({ error: "could not fetch History" });
   }
 }
 
 /**
  * 2. STREAMING HANDLER
- * Used for the ChatGPT-style typing effect in the frontend.
+ * Handles the AI generation with session-based memory and saves to DB.
  */
 export async function generateStoryStreamHandler(req: Request, res: Response): Promise<void> {
   console.log("🏁 Handler Started: generateStoryStreamHandler");
   try {
-    const { prompt, userId } = req.body;
+    // ← sessionId comes from frontend now instead of history array
+    const { prompt, userId, sessionId } = req.body;
 
     if (!prompt || !userId) {
       res.status(400).json({ error: "Missing prompt or userId" });
       return;
     }
 
+    // Use userId as fallback sessionId if frontend didn't send one
+    const activeSessionId = sessionId || String(userId);
+
+    // Ensure User exists
     await prisma.user.upsert({
       where: { id: String(userId) },
       update: {},
       create: { id: String(userId) }
     });
 
-    // --- PRODUCTION HEADERS ---
+    // SSE Headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering
+    res.setHeader('X-Accel-Buffering', 'no');
 
     let fullTextForDB = "";
 
-    // Stream to the frontend AND collect for the database simultaneously
-    for await (const chunk of executeSunkarPipelineStream(prompt)) {
+    // ← Pass sessionId instead of history array
+    for await (const chunk of executeSunkarPipelineStream(prompt, activeSessionId)) {
       if (chunk.type === 'text') {
         fullTextForDB += chunk.data;
       }
-      
-      // Write to the HTTP response stream
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     }
 
-    // --- THE FIX: Save to DB after the stream finishes ---
-    const titleLine = fullTextForDB.split('\n')[0].replace(/\*/g, '').trim();
-    
+    // Extract Title for DB
+    const titleMatch = fullTextForDB.match(/\[TITLE\]\s*\n(.+)/);
+    const titleLine = titleMatch
+      ? titleMatch[1].trim()
+      : fullTextForDB.split('\n')[0].replace(/\[TITLE\]|\*/g, '').trim();
+
+    // Save to Database
     await prisma.story.create({
       data: {
         originalPrompt: prompt,
-        generatedTitle: titleLine || "Streamed Story",
+        generatedTitle: titleLine || "A New Story",
         generatedStory: fullTextForDB,
         userId: String(userId),
       },
@@ -110,34 +91,70 @@ export async function generateStoryStreamHandler(req: Request, res: Response): P
     res.end();
   } catch (err) {
     console.error("🔥 CRASH IN STREAM HANDLER:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Internal Server Error" });
-    }
+    if (!res.headersSent) res.end();
   }
 }
 
-export async function getHistoryHandler(req: Request, res: Response){
-  try{
-  const {userId} = req.query;
+/**
+ * 3. NORMAL HANDLER (NON-STREAMING)
+ */
+export async function generateStoryHandler(req: Request, res: Response) {
+  try {
+    const { prompt, userId, sessionId } = req.body;
 
-  if(!userId){
-    return res.status(400).json({
-      error: "userID is Required"
+    if (!prompt || !userId) {
+      return res.status(400).json({ error: "prompt & userId required" });
+    }
+
+    const activeSessionId = sessionId || String(userId);
+
+    await prisma.user.upsert({
+      where: { id: String(userId) },
+      update: {},
+      create: { id: String(userId) },
     });
 
-    const stories = await prisma.story.findMany({
-      where : {userId: String(userId)},
-      orderBy: {createdAt: "desc"},
-      select: {
-        id: true,
-        generatedTitle: true
-      }
-    })
-    res.json(stories);
-  }
+    let fullText = "";
+    for await (const chunk of executeSunkarPipelineStream(prompt, activeSessionId)) {
+      if (chunk.type === "text") fullText += chunk.data;
+    }
 
-  }catch(err:any){
-  console.error("History Fetch Error",err);
-  res.status(500).json({error: "could not fetch History"});
+    const titleMatch = fullText.match(/\[TITLE\]\s*\n(.+)/);
+    const titleLine = titleMatch
+      ? titleMatch[1].trim()
+      : fullText.split('\n')[0].replace(/\*/g, '').trim();
+
+    const story = await prisma.story.create({
+      data: {
+        originalPrompt: prompt,
+        generatedTitle: titleLine || "A New Story",
+        generatedStory: fullText,
+        userId: String(userId),
+      },
+    });
+
+    res.json({ storyId: story.id, title: story.generatedTitle, text: fullText });
+  } catch (err: any) {
+    console.error("❌ Error in generateStoryHandler:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * 4. CLEAR SESSION HANDLER
+ * Call this when user clicks "New Story" or "Start Fresh" on the frontend.
+ */
+export async function clearSessionHandler(req: Request, res: Response) {
+  try {
+    const { sessionId, userId } = req.body;
+    const activeSessionId = sessionId || String(userId);
+
+    clearSession(activeSessionId);
+    console.log(`🧹 Session cleared: ${activeSessionId}`);
+    
+    return res.json({ success: true, message: "Session cleared" });
+  } catch (err: any) {
+    console.error("❌ Error clearing session:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
