@@ -115,3 +115,29 @@ export async function generateStoryStreamHandler(req: Request, res: Response): P
     }
   }
 }
+
+export async function getHistoryHandler(req: Request, res: Response){
+  try{
+  const {userId} = req.query;
+
+  if(!userId){
+    return res.status(400).json({
+      error: "userID is Required"
+    });
+
+    const stories = await prisma.story.findMany({
+      where : {userId: String(userId)},
+      orderBy: {createdAt: "desc"},
+      select: {
+        id: true,
+        generatedTitle: true
+      }
+    })
+    res.json(stories);
+  }
+
+  }catch(err:any){
+  console.error("History Fetch Error",err);
+  res.status(500).json({error: "could not fetch History"});
+  }
+}
