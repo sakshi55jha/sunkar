@@ -11,14 +11,18 @@ const model = genAI.getGenerativeModel({
 });
 
 // ─────────────────────────────────────────
-// CONVERSATION HISTORY (in-memory per session)
+// TYPES
 // ─────────────────────────────────────────
 interface Message {
   role: "user" | "model";
   parts: { text: string }[];
 }
 
-// Store per session — key is sessionId
+type Intent = "story" | "chat" | "suggest" | "continue" | "off_topic";
+
+// ─────────────────────────────────────────
+// SESSION MEMORY
+// ─────────────────────────────────────────
 const sessionHistories = new Map<string, Message[]>();
 
 function getHistory(sessionId: string): Message[] {
@@ -32,20 +36,102 @@ export function addToHistory(sessionId: string, role: "user" | "model", text: st
   const history = getHistory(sessionId);
   history.push({ role, parts: [{ text }] });
 
-  // Keep last 20 messages max to avoid context overflow
+  // Keep last 20 messages max
   if (history.length > 20) {
     sessionHistories.set(sessionId, history.slice(-20));
   }
 }
 
-function clearHistory(sessionId: string) {
+export function clearSession(sessionId: string) {
   sessionHistories.delete(sessionId);
 }
 
 // ─────────────────────────────────────────
-// SYSTEM PROMPT
+// INTENT DETECTION
+// Figures out what the user actually wants
+// before deciding how to respond
 // ─────────────────────────────────────────
-const SYSTEM_PROMPT = `
+function detectIntent(input: string): Intent {
+  const text = input.toLowerCase().trim();
+
+  // 1. Continuing an existing story
+  const isContinue =
+    /wait|actually|what if|i just noticed|but then|what happens next|keep going|and then|continue|more|make it|make the|scarier|funnier|interesting|sad(der)?|longer|shorter|rewrite|change it|edit|different ending/i.test(text);
+  if (isContinue) return "continue";
+
+  // 2. Asking for story suggestions / topics
+  const isSuggest =
+    /suggest|topic|idea|what (should|can) i (write|narrate|tell)|give me (a topic|ideas|some topics)|what (kind of story|stories)|which story|help me (choose|pick|decide)/i.test(text);
+  if (isSuggest) return "suggest";
+
+  // 3. Explicitly asking for a story
+  const isStory =
+    /write|tell me|generate|create|give me|make|story about|a story|horror story|love story|funny story|sad story|thriller|write a|narrate|poem about|flash fiction|diary entry|voice note|linkedin post|twitter thread|reddit post/i.test(text);
+  if (isStory) return "story";
+
+  // 4. Casual greetings / small talk / completely off-topic
+  const isOffTopic =
+    /^(hi+|hey+|hello+|what'?s up|sup|yo|hola|namaste|good (morning|evening|night|afternoon)|how are you|what are you|who are you|what can you do|what to eat|food|weather|news|joke|meme|coding|math|help me with|explain|what is|how to|can you|do you)/i.test(text);
+  if (isOffTopic) return "off_topic";
+
+  // 5. Very short messages with no story context = chat
+  if (text.split(" ").length <= 4) return "chat";
+
+  // 6. Default — treat as story request if none of above matched
+  return "story";
+}
+
+// ─────────────────────────────────────────
+// RESPONSE FOR CHAT / OFF-TOPIC / SUGGEST
+// These go to Gemini with a lightweight prompt
+// No story rules — just natural conversation
+// ─────────────────────────────────────────
+function buildConversationPrompt(input: string, intent: Intent): string {
+  if (intent === "suggest") {
+    return `
+The user is asking for story topic suggestions or ideas.
+Give them 5 to 7 interesting, specific story prompts they could explore.
+Group them by genre if helpful (horror, love, corporate, friendship, etc).
+Keep suggestions short — one line each.
+Make them feel exciting and specific, not generic.
+Do NOT write any stories. Just suggest topics.
+Format them as a clean numbered list.
+
+User message: ${input}
+    `.trim();
+  }
+
+  if (intent === "off_topic") {
+    return `
+The user said something that is not related to story writing.
+Respond in a warm, friendly way.
+Gently let them know you are a story writing assistant.
+If they said hi or hello — greet them back naturally and ask what kind of story they want.
+If they asked something completely unrelated (food, weather, coding, etc) — politely say that's outside what you do, and invite them to ask for a story instead.
+Keep your response SHORT — 2 to 3 sentences max.
+Do NOT write any stories.
+
+User message: ${input}
+    `.trim();
+  }
+
+  // Generic chat fallback
+  return `
+The user is having a casual conversation, not asking for a story yet.
+Respond naturally and warmly in 1 to 3 sentences.
+You are a story writing assistant — stay in that identity.
+If the context is unclear, ask them what kind of story they'd like.
+Do NOT write any stories unless they clearly ask.
+
+User message: ${input}
+  `.trim();
+}
+
+// ─────────────────────────────────────────
+// SYSTEM PROMPT (story writing rules)
+// Only used when intent = "story" or "continue"
+// ─────────────────────────────────────────
+const STORY_SYSTEM_PROMPT = `
 You are a master storyteller who writes stories that feel like real memories.
 Your stories make people stop scrolling, feel a knot in their chest, and think "this is exactly how that feels."
 
@@ -55,13 +141,11 @@ If the user refers to a previous story, character, detail, or moment — continu
 Never start a new story if the user is clearly asking about or continuing the previous one.
 Signals that the user wants to CONTINUE the same story:
 - "wait", "actually", "what if", "I just noticed", "but then", "what happens next"
-- Any reference to a detail from the previous story (mirror, fingerprint, bathroom, character name, etc.)
-- Questions like "what do I do", "what should I do", "and then?", "keep going"
-- Asking to make it "more interesting", "scarier", "funnier" — edit the SAME story, don't start new
+- Any reference to a detail from the previous story
+- "make it more interesting", "scarier", "funnier" — edit the SAME story, don't start new
 Signals that the user wants a BRAND NEW story:
 - "write a new story about..."
 - "tell me a different story"
-- "start fresh" or "new topic"
 - A completely unrelated topic with no reference to previous content
 When in doubt — CONTINUE the existing story. Do not start fresh.
 
@@ -83,9 +167,9 @@ in conclusion, tapestry, delve, beacon, realm, foster, navigate,
 "I guess", "um", "uh", "you know?", "kinda", "honestly..."
 
 Always use the simple version instead:
-- "squeaked" → "made a noise" or "screeched a little"
+- "squeaked" → "made a noise"
 - "linoleum" → "floor"
-- "deliberate" → just describe what happened, don't label it
+- "deliberate" → just describe what happened
 - "stark" → "empty" or "bare"
 - "echoing" → "bouncing around the empty hall"
 - "adjacent" → "next to"
@@ -93,9 +177,6 @@ Always use the simple version instead:
 - "permeated" → "filled the room"
 - "visceral" → just show the physical feeling instead
 - "palpable" → "you could feel it"
-- "suffused" → "filled with"
-
-If you write a sentence and it sounds like it belongs in a book report — rewrite it in plain words.
 
 LENGTH RULE — NON-NEGOTIABLE:
 Default length is MEDIUM — 250 to 350 words. Always. No exceptions.
@@ -111,19 +192,10 @@ THE ANTI-BORING LAWS
 ══════════════════════════════════════════
 
 LAW 1 — NEVER ONE THOUGHT PER LINE.
-Chopping every sentence into its own line kills momentum.
-
-WRONG:
-"I walked in.
-It was quiet.
-Really quiet."
-
-RIGHT:
-"I walked in and something was already wrong — that specific quiet that isn't peaceful, it's just empty."
+WRONG: "I walked in. It was quiet. Really quiet."
+RIGHT: "I walked in and something was already wrong — that specific quiet that isn't peaceful, it's just empty."
 
 LAW 2 — FIRST LINE MUST CREATE A QUESTION.
-Open with something that makes the reader think "wait, what happened?"
-
 WRONG: "So it all started on Monday."
 RIGHT: "Sarah's plant is still on her desk. Nobody's watered it in eight days."
 
@@ -158,7 +230,7 @@ PARAGRAPH RHYTHM
 - Write in flowing paragraphs, NOT one line per thought.
 - 3 to 5 sentences per paragraph.
 - Vary sentence length.
-- Blank line between paragraphs — but NOT between every sentence.
+- Blank line between paragraphs — not between every sentence.
 
 OUTPUT FORMAT:
 Return your response in exactly this structure. Nothing before [TITLE]. Nothing after the story ends.
@@ -178,33 +250,28 @@ function getGenreInstruction(input: string): string {
   if (/\blove story\b|falling in love|first love|unrequited|secret love/i.test(input)) return `
 GENRE: Love story.
 Write the tension of almost — not the relationship itself.
-Capture the small moments: the first time you noticed them, the accidental closeness, the way time slowed.
 Don't rush to "I love you." Stay in the almost.
 Tone: warm, slightly nervous, achingly hopeful.`;
 
   if (/\bromance\b|romantic|slow burn|chemistry/i.test(input)) return `
 GENRE: Romance.
 Build chemistry through glances, small accidents, almost-moments.
-Show attraction through what the narrator notices — details only someone infatuated would catch.
 One moment of vulnerability that changes everything.
 Tone: warm, fluttery, a little reckless.`;
 
   if (/breakup|break up|broke up|heartbreak|she left|he left|moving on|\bex\b|after us/i.test(input)) return `
 GENRE: Breakup / heartbreak.
 Don't write the fight. Write the silence after.
-Focus on the small everyday grief: their mug still in the cabinet, the habit of reaching for your phone.
 The narrator feels relief and devastation at the same time — write both.
-Tone: quiet, heavy, honest. Not dramatic. End unresolved.`;
+Tone: quiet, heavy, honest. End unresolved.`;
 
   if (/horror|scary|haunted|ghost|demon|cursed|paranormal|something wrong|mirror/i.test(input)) return `
 GENRE: Horror / psychological dread.
-The scariest horror is in the head — not monsters jumping out.
 Build dread through normal things that are slightly off.
 Use short sharp sentences at the scary parts. Let silence do the work.
-The horror should feel personal — like it's aimed at the narrator.
 Tone: unsettling, slow-building, deeply uncomfortable.
 End with something unexplained. Real horror doesn't wrap up.
-IMPORTANT: Horror needs at least 3 full paragraphs to build proper dread. Do not rush.`;
+IMPORTANT: Horror needs at least 3 full paragraphs to build proper dread.`;
 
   if (/thriller|suspense|mystery|murder|missing|conspiracy|someone following/i.test(input)) return `
 GENRE: Thriller / suspense.
@@ -220,45 +287,41 @@ Tone: warm, self-aware, deeply relatable.`;
 
   if (/dark humor|dark comedy|morbid|deadpan|absurd/i.test(input)) return `
 GENRE: Dark humor.
-Find the funny in truly bad situations: corporate misery, existential dread, social failure.
+Find the funny in truly bad situations.
 Tone: dry, flat, a little dark — never mean to people who are hurting.
 Short sentences. Flat delivery. Never explain the joke.`;
 
   if (/friendship|best friend|bestie|friends drifting|childhood friend|old friend/i.test(input)) return `
 GENRE: Friendship.
 One specific moment that captures the whole friendship.
-OR the drift — the slow way friendships end with no fight, no reason, just distance.
+OR the drift — the slow way friendships end with no fight, no reason.
 Tone: warm, specific, a little sad.`;
 
   if (/\bfamily\b|\bmom\b|\bdad\b|mother|father|parents|sibling|brother|sister|grandma|grandpa|childhood home/i.test(input)) return `
 GENRE: Family.
 The best family stories are specific — the exact thing someone did that showed how they felt.
-Focus on complicated love: the parent who tried in the wrong way, the thing nobody said at dinner.
 Tone: layered — love and frustration and grief can all be in one paragraph.`;
 
   if (/corporate|office|\bjob\b|\bwork\b|career|boss|layoff|startup|tech job|resignation|workplace|colleague|promotion/i.test(input)) return `
 GENRE: Corporate / tech workplace.
-Ground it in real corporate life: a Slack message left on read, an all-hands that says nothing, a project quietly cancelled.
-Include real details from 2025: AI replacing roles, mass layoffs as "restructuring", fake "we're a family" culture.
+Ground it in real corporate life: a Slack message left on read, an all-hands that says nothing.
+Include real details from 2025: AI replacing roles, mass layoffs as "restructuring".
 Tone: a little bitter, tired, but still human underneath.`;
 
   if (/anxiety|stress|overthinking|panic attack|burnout|overwhelmed|spiral|can't stop thinking/i.test(input)) return `
 GENRE: Anxiety / mental spiral.
 Write anxiety from the inside — living it in real time.
-Thoughts spiral on the page the way they spiral in the head.
 Ground it in the body: tight chest, dry mouth, can't sit still.
 Tone: raw, claustrophobic, honest.`;
 
   if (/nostalgia|childhood memories|back then|used to|remember when|growing up|hometown|old days/i.test(input)) return `
 GENRE: Nostalgia / memory.
-Lives in tiny specific details — the smell of a place, a song from that year, the weight of an object.
-Capture the feeling of remembering it NOW from where you are today.
+Lives in tiny specific details — the smell of a place, a song, the weight of an object.
 Tone: warm and a little sad. A little lost.`;
 
   if (/lonely|loneliness|\balone\b|invisible|disconnected|no one gets me|feel empty/i.test(input)) return `
 GENRE: Loneliness.
 The worst loneliness is being around people and still feeling invisible.
-Write the specific texture: the group chat you don't reply to, the party you left early.
 Tone: quiet, interior, a little numb.`;
 
   if (/betrayal|backstab|trust broken|they lied|fake friend|used me|found out/i.test(input)) return `
@@ -270,44 +333,37 @@ Tone: cold, sharp, controlled.`;
   if (/grief|loss|\bdeath\b|mourning|miss someone|they're gone|funeral|after they died/i.test(input)) return `
 GENRE: Grief / loss.
 Grief hits people in normal moments — a grocery store, a song, seeing their handwriting.
-Don't describe sadness. Show what the narrator can't do anymore.
 Tone: tender, heavy, honest.`;
 
   if (/secret|confession|never told anyone|carrying this|nobody knows/i.test(input)) return `
 GENRE: Secret / confession.
 Build the weight of the secret first — how long it has been carried.
-The confession feels like breathing out after holding it in for years.
 Tone: close, a little dangerous.`;
 
   if (/motivat|comeback|never gave up|rock bottom|\brise\b|underdog|starting over after/i.test(input)) return `
 GENRE: Comeback / motivation.
 Real motivation shows the lowest point — not the win.
-The turn is small and inside — a decision, not a miracle.
-Tone: honest, gritty, earned.`;
+Tone: honest, gritty, earned. Never use hustle culture language.`;
 
   if (/adventure|road trip|travel|ran away|spontaneous|left everything/i.test(input)) return `
 GENRE: Adventure / escape.
 Ground the adventure in WHY the narrator needed to leave.
-One unexpected moment — a wrong turn, a stranger, something that changed the whole trip.
 The adventure changes something inside, not just outside.`;
 
   if (/obsess|can't stop thinking about|toxic love|fixated|checking their profile/i.test(input)) return `
 GENRE: Obsession / toxic attachment.
 Write the inside logic of obsession — the narrator knows it is too much and can't stop.
-Show the specific habits: checking a profile, replaying a talk, reading into every small thing.
 Tone: urgent, a little unhinged, dangerously honest.`;
 
   if (/healing|finding myself|new chapter|after everything|learning to/i.test(input)) return `
 GENRE: Self-growth / healing.
 The real version is messy — not a movie montage.
-Show one small, unglamorous act of choosing yourself.
 The narrator is still in the middle of it — not looking back from a good place.
 Tone: quiet, a little fragile, determined.`;
 
   if (/parenting|new parent|\bfather\b|\bmother\b|\bbaby\b|\bkid\b|raising|my child|\bson\b|\bdaughter\b/i.test(input)) return `
 GENRE: Parenting.
-Find the unglamorous moment: the 3am feeding, the tantrum, the first time they pull away.
-Include the narrator's fear alongside the love.
+Include the narrator's fear alongside the love. Parenting is terrifying.
 Tone: tender, tired, full of love and doubt at the same time.`;
 
   if (/social media|followers|viral|influencer|cancel|instagram fame|online life/i.test(input)) return `
@@ -335,7 +391,6 @@ function getFormatInstruction(input: string): string {
   if (/linkedin/i.test(input)) return `
 FORMAT: LinkedIn post.
 6 to 9 lines maximum. Each line is a standalone punchy thought.
-Blank line between every 2 to 3 lines.
 First line = scroll-stopper. Last line = quiet gut-punch or open question.
 Never write: "Here's what I learned", hashtags, emojis.`;
 
@@ -410,18 +465,35 @@ Build slowly. Earn every paragraph. Don't rush the ending.`;
 FORMAT: Medium story.
 250 to 350 words. 3 to 4 solid paragraphs.
 One clear arc: hook → tension → turn → open landing.
-IMPORTANT: Count your words before finishing. If you are below 250 words, keep writing.
+IMPORTANT: Count your words before finishing. If below 250 words, keep writing.
 Do not end the story until you have written at least 250 words.
 Do not go beyond 350 words.`;
 }
 
 // ─────────────────────────────────────────
-// BUILD PROMPT FOR FIRST MESSAGE
+// BUILD STORY PROMPT
 // ─────────────────────────────────────────
-function buildFirstPrompt(userInput: string): string {
+function buildStoryPrompt(userInput: string, isFirstMessage: boolean): string {
   const input = userInput.toLowerCase();
   const genre = getGenreInstruction(input);
   const format = getFormatInstruction(input);
+
+  if (!isFirstMessage) {
+    const isNewStory = /new story|different story|start fresh|new topic|tell me another|write a new/i.test(input);
+    if (!isNewStory) {
+      return `
+The user is continuing the same story or conversation from above.
+Do NOT start a new story. Read the conversation history and continue from exactly where it left off.
+If the user says "make it more interesting/scarier/funnier" — rewrite or extend the PREVIOUS story.
+If the user adds a new detail — weave it into the EXISTING story naturally.
+
+${format}
+
+USER MESSAGE:
+${userInput}
+      `.trim();
+    }
+  }
 
   return `
 ${genre}
@@ -430,64 +502,48 @@ ${format}
 
 USER REQUEST:
 ${userInput}
-`.trim();
+  `.trim();
 }
 
 // ─────────────────────────────────────────
-// BUILD PROMPT FOR FOLLOW-UP MESSAGES
-// ─────────────────────────────────────────
-function buildFollowUpPrompt(userInput: string): string {
-  const input = userInput.toLowerCase();
-  const format = getFormatInstruction(input);
-
-  // Check if user is asking for a brand new story
-  const isNewStory = /new story|different story|start fresh|new topic|tell me another|write a new/i.test(input);
-
-  if (isNewStory) {
-    // Treat like a fresh first prompt
-    return buildFirstPrompt(userInput);
-  }
-
-  // Otherwise — continue the existing story
-  return `
-The user is continuing the same story or conversation from above.
-Do NOT start a new story. Do NOT ignore what came before.
-Read the conversation history and continue from exactly where it left off.
-
-If the user says "make it more interesting" or "make it scarier" or similar — rewrite or extend the PREVIOUS story with those changes.
-If the user adds a new detail or plot point — weave it into the EXISTING story naturally.
-If the user asks a question about what happened — answer it by continuing the story.
-
-${format}
-
-USER MESSAGE:
-${userInput}
-`.trim();
-}
-
-// ─────────────────────────────────────────
-// STREAMING EXPORT WITH MEMORY
+// MAIN STREAMING EXPORT
 // ─────────────────────────────────────────
 export async function* executeSunkarPipelineStream(
   prompt: string,
-  sessionId: string = "default"  // pass a unique sessionId per user/tab
+  sessionId: string = "default"
 ) {
   try {
     const history = getHistory(sessionId);
     const isFirstMessage = history.length === 0;
 
-    // Build the right prompt based on whether this is a new or continuing conversation
-    const tailoredPrompt = isFirstMessage
-      ? buildFirstPrompt(prompt)
-      : buildFollowUpPrompt(prompt);
+    // ── STEP 1: Detect what the user actually wants ──
+    const intent = detectIntent(prompt);
+
+    let tailoredPrompt: string;
+    let systemPrompt: string;
+
+    if (intent === "story" || intent === "continue") {
+      // User wants a story — use full story system prompt
+      tailoredPrompt = buildStoryPrompt(prompt, isFirstMessage);
+      systemPrompt = STORY_SYSTEM_PROMPT;
+    } else {
+      // User is chatting, asking for suggestions, or off-topic
+      // Use lightweight conversation prompt — NO story rules
+      tailoredPrompt = buildConversationPrompt(prompt, intent);
+      systemPrompt = `
+You are Sunkar — a friendly AI story writing assistant.
+You help people write and explore stories.
+Keep responses short, warm, and natural.
+Never write a full story unless the user clearly asks for one.
+      `.trim();
+    }
 
     // Add user message to history
     addToHistory(sessionId, "user", tailoredPrompt);
 
-    // Send full history to Gemini
     const result = await model.generateContentStream({
       contents: getHistory(sessionId),
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: systemPrompt,
     });
 
     let fullText = "";
@@ -513,13 +569,13 @@ export async function* executeSunkarPipelineStream(
       finishReason === "MAX_TOKENS" ||
       (finishReason === "" && !fullText.match(/[.!?…"'](\s*)$/));
 
-    if (isTruncated) {
+    if (isTruncated && (intent === "story" || intent === "continue")) {
       const continueMsg = "Continue exactly from where you stopped. Do not repeat anything. Do not add a new title.";
       addToHistory(sessionId, "user", continueMsg);
 
       const continuation = await model.generateContentStream({
         contents: getHistory(sessionId),
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
       });
 
       let continuationText = "";
@@ -537,6 +593,7 @@ export async function* executeSunkarPipelineStream(
       data: {
         storyId: `skr_${Math.random().toString(36).slice(2, 9)}`,
         finishReason,
+        intent,                                        // useful for debugging
         wordCount: fullText.split(/\s+/).length,
         wasTruncated: isTruncated,
         messageCount: getHistory(sessionId).length,
@@ -546,11 +603,4 @@ export async function* executeSunkarPipelineStream(
   } catch (error) {
     yield { type: "text", data: "I... I can't find the words right now." };
   }
-}
-
-// ─────────────────────────────────────────
-// CLEAR SESSION (call when user starts fresh)
-// ─────────────────────────────────────────
-export function clearSession(sessionId: string) {
-  clearHistory(sessionId);
 }
