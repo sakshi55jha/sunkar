@@ -7,7 +7,7 @@ import {
   getHistoryHandler,
   clearSessionHandler,
   loadSessionHandler,
-  addToHistory   
+    
 } from "./controllers/storyController";
 
 const app = express();
