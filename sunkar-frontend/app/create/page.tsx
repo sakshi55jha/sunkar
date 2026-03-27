@@ -1,6 +1,6 @@
 'use client';
 
-import { Headphones, Loader2, Plus, Send, UserCircle2, Bot, User, Trash2 } from 'lucide-react';
+import { Headphones, Loader2, Plus, Send, UserCircle2, Bot, User, Trash2, AlertCircle, Clock } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
@@ -20,6 +20,13 @@ interface Session {
   title: string;
   messages: Message[];
   createdAt: number;
+}
+
+interface RateLimitState {
+  isLimited: boolean;
+  message: string;
+  retryAfter: number;     // seconds remaining
+  retryAfterFull: number; // original seconds from server
 }
 
 // ─────────────────────────────────────────
@@ -48,6 +55,15 @@ function saveSessions(sessions: Session[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
 }
 
+// Format seconds into "Xm Ys" display
+function formatTime(seconds: number): string {
+  if (seconds <= 0) return '0s';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 // ─────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────
@@ -59,8 +75,17 @@ export default function Create() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
 
+  // Rate limit state
+  const [rateLimit, setRateLimit] = useState<RateLimitState>({
+    isLimited: false,
+    message: '',
+    retryAfter: 0,
+    retryAfterFull: 0,
+  });
+
   const sessionIdRef = useRef<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const rateLimitTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load sessions from localStorage on mount
   useEffect(() => {
@@ -72,7 +97,49 @@ export default function Create() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── Save / update a session in state + localStorage ──
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimit.isLimited) return;
+
+    rateLimitTimerRef.current = setInterval(() => {
+      setRateLimit(prev => {
+        const next = prev.retryAfter - 1;
+        if (next <= 0) {
+          // Cooldown done — clear the rate limit
+          clearInterval(rateLimitTimerRef.current!);
+          return { isLimited: false, message: '', retryAfter: 0, retryAfterFull: 0 };
+        }
+        return { ...prev, retryAfter: next };
+      });
+    }, 1000);
+
+    return () => {
+      if (rateLimitTimerRef.current) clearInterval(rateLimitTimerRef.current);
+    };
+  }, [rateLimit.isLimited]);
+
+  // Handle 429 rate limit response
+  const handleRateLimitError = async (res: Response) => {
+    try {
+      const data = await res.json();
+      const retryAfter = data.retryAfter || 60;
+      setRateLimit({
+        isLimited: true,
+        message: data.error || 'Too many requests. Please wait.',
+        retryAfter,
+        retryAfterFull: retryAfter,
+      });
+    } catch {
+      setRateLimit({
+        isLimited: true,
+        message: 'Too many requests. Please wait a moment.',
+        retryAfter: 60,
+        retryAfterFull: 60,
+      });
+    }
+  };
+
+  // ── Upsert session in localStorage ───────────────────
   const upsertSession = (sessionId: string, newMessages: Message[]) => {
     setSessions(prev => {
       const exists = prev.find(s => s.sessionId === sessionId);
@@ -99,7 +166,7 @@ export default function Create() {
     });
   };
 
-  // ── New Chat ─────────────────────────────────────────
+  // ── New Chat ──────────────────────────────────────────
   const handleNewChat = async () => {
     if (sessionIdRef.current) {
       try {
@@ -118,9 +185,8 @@ export default function Create() {
     setError('');
   };
 
-  // ── Load past session from sidebar ───────────────────
+  // ── Load past session ─────────────────────────────────
   const handleLoadSession = async (session: Session) => {
-    // Clear backend memory for previous session
     if (sessionIdRef.current && sessionIdRef.current !== session.sessionId) {
       try {
         await fetch(`${BACKEND_URL}/api/stories/clear-session`, {
@@ -131,14 +197,12 @@ export default function Create() {
       } catch { /* ignore */ }
     }
 
-    // Set the active session
     sessionIdRef.current = session.sessionId;
     setActiveSessionId(session.sessionId);
     setMessages(session.messages);
     setPrompt('');
     setError('');
 
-    // Re-hydrate backend memory so follow-up messages have context
     try {
       await fetch(`${BACKEND_URL}/api/stories/load-session`, {
         method: 'POST',
@@ -151,7 +215,7 @@ export default function Create() {
     } catch { /* ignore */ }
   };
 
-  // ── Delete a session ──────────────────────────────────
+  // ── Delete session ────────────────────────────────────
   const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
 
@@ -174,16 +238,15 @@ export default function Create() {
     }
   };
 
-  // ── Generate ──────────────────────────────────────────
+  // ── Main generate ─────────────────────────────────────
   const handleGenerate = async () => {
-    if (!prompt.trim() || loading) return;
+    if (!prompt.trim() || loading || rateLimit.isLimited) return;
 
     const userMessage = prompt;
     setPrompt('');
     setError('');
     setLoading(true);
 
-    // Create new session if none is active
     if (!sessionIdRef.current) {
       const newId = generateSessionId();
       sessionIdRef.current = newId;
@@ -192,7 +255,6 @@ export default function Create() {
 
     const currentSessionId = sessionIdRef.current;
 
-    // Optimistically add user message + empty assistant bubble
     const optimisticMessages: Message[] = [
       ...messages,
       { role: 'user', content: userMessage },
@@ -210,6 +272,19 @@ export default function Create() {
           sessionId: currentSessionId,
         }),
       });
+
+      // ── Handle rate limit response ──
+      if (res.status === 429) {
+        await handleRateLimitError(res);
+        // Remove the empty assistant bubble we added optimistically
+        setMessages(prev => prev.slice(0, -1));
+        setLoading(false);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -241,7 +316,7 @@ export default function Create() {
         }
       }
 
-      // Save completed conversation to localStorage
+      // Save to localStorage
       const finalMessages: Message[] = [
         ...messages,
         { role: 'user', content: userMessage },
@@ -250,14 +325,19 @@ export default function Create() {
       setMessages(finalMessages);
       upsertSession(currentSessionId, finalMessages);
 
-    } catch {
-      setError('Connection lost. Check if backend is running.');
+    } catch (err: any) {
+      // Don't show error if it was a rate limit (already handled above)
+      if (!rateLimit.isLimited) {
+        setError('Connection lost. Check if backend is running.');
+      }
+      // Remove empty assistant bubble on error
+      setMessages(prev => prev.filter((_, i) => !(i === prev.length - 1 && prev[prev.length - 1].content === '')));
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Group sessions by date like ChatGPT ──────────────
+  // ── Group sessions by date ────────────────────────────
   const groupSessions = () => {
     const now = Date.now();
     const DAY = 86400000;
@@ -313,6 +393,11 @@ export default function Create() {
 
   const groups = groupSessions();
 
+  // Progress percentage for rate limit cooldown bar
+  const cooldownProgress = rateLimit.isLimited
+    ? ((rateLimit.retryAfterFull - rateLimit.retryAfter) / rateLimit.retryAfterFull) * 100
+    : 0;
+
   // ─────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────
@@ -322,7 +407,6 @@ export default function Create() {
       {/* SIDEBAR */}
       <aside className="w-80 hidden md:flex flex-col bg-emerald-950/10 border border-emerald-900/20 rounded-[2rem] p-6">
 
-        {/* New Chat */}
         <button
           onClick={handleNewChat}
           className="flex items-center justify-between w-full p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl hover:bg-emerald-500/20 transition-all group"
@@ -331,7 +415,6 @@ export default function Create() {
           <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
         </button>
 
-        {/* Session list */}
         <div className="flex-1 mt-6 overflow-y-auto custom-scrollbar pr-1">
           {sessions.length === 0 ? (
             <p className="text-[10px] text-emerald-900 italic px-2 mt-4">
@@ -347,7 +430,6 @@ export default function Create() {
           )}
         </div>
 
-        {/* User profile */}
         <div className="pt-6 border-t border-emerald-900/20 flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
             <UserCircle2 />
@@ -400,7 +482,11 @@ export default function Create() {
                   >
                     {msg.content}
                     {msg.role === 'assistant' && !msg.content && loading && (
-                      <Loader2 className="animate-spin text-emerald-500" size={18} />
+                      <div className="flex gap-1 items-center h-5">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -410,20 +496,53 @@ export default function Create() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* RATE LIMIT BANNER */}
+        {rateLimit.isLimited && (
+          <div className="mx-6 mb-2 p-4 bg-amber-950/40 border border-amber-700/40 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-amber-400 text-sm font-medium">{rateLimit.message}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Clock size={13} className="text-amber-600" />
+                  <p className="text-amber-600 text-xs">
+                    Try again in {formatTime(rateLimit.retryAfter)}
+                  </p>
+                </div>
+                {/* Cooldown progress bar */}
+                <div className="mt-3 w-full h-1 bg-amber-900/40 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${cooldownProgress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* INPUT BOX */}
         <div className="p-6 bg-gradient-to-t from-[#000502] to-transparent">
-          <div className="max-w-4xl mx-auto relative flex items-center p-2 bg-black border border-emerald-900/50 rounded-2xl focus-within:border-emerald-500 transition-all shadow-2xl">
+          <div className={`max-w-4xl mx-auto relative flex items-center p-2 bg-black border rounded-2xl transition-all shadow-2xl ${
+            rateLimit.isLimited
+              ? 'border-amber-900/50 opacity-60'
+              : 'border-emerald-900/50 focus-within:border-emerald-500'
+          }`}>
             <input
               className="flex-1 bg-transparent px-4 py-3 outline-none text-sm md:text-base"
-              placeholder="Tell me your situation..."
+              placeholder={
+                rateLimit.isLimited
+                  ? `Rate limited — wait ${formatTime(rateLimit.retryAfter)}...`
+                  : 'Tell me your situation...'
+              }
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleGenerate()}
-              disabled={loading}
+              disabled={loading || rateLimit.isLimited}
             />
             <button
               onClick={handleGenerate}
-              disabled={loading || !prompt.trim()}
+              disabled={loading || !prompt.trim() || rateLimit.isLimited}
               className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center text-black hover:bg-emerald-400 disabled:opacity-30 disabled:hover:bg-emerald-500 transition-all"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
