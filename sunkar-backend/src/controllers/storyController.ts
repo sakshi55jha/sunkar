@@ -35,7 +35,7 @@ export async function getHistoryHandler(req: Request, res: Response) {
  * Handles the AI generation with session-based memory and saves to DB.
  */
 export async function generateStoryStreamHandler(req: Request, res: Response): Promise<void> {
-  console.log("🏁 Handler Started: generateStoryStreamHandler");
+  console.log("Handler Started: generateStoryStreamHandler");
   try {
     // ← sessionId comes from frontend now instead of history array
     const { prompt, userId, sessionId } = req.body;

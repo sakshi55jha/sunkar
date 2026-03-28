@@ -1,6 +1,8 @@
+// ── Imports ─────────────────────────────────────────
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 
 import {
@@ -9,95 +11,93 @@ import {
   getHistoryHandler,
   clearSessionHandler,
   loadSessionHandler,
-    
 } from "./controllers/storyController";
 
+// ── Constants ─────────────────────────────────────────
+const PORT = 5000;
+const GLOBAL_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const STORY_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const BURST_LIMIT_WINDOW_MS = 10 * 1000;
+
+// ── Helpers / Utils ─────────────────────────────────────────
+
+// Extracts the reliable user identifier for rate limiting
+const getRateLimitKey = (req: Request): string => {
+  return req.body?.userId ?? req.ip ?? "unknown";
+};
+
+// ── Middlewares ─────────────────────────────────────────
 const app = express();
 
-// 1. FIRST: Enable CORS and the JSON Parser
 app.use(cors());
-app.use(express.json()); // <--- MOVED THIS UP! This opens the "box"
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2. SECOND: Your Logger (Now it will actually see the Body!)
-app.use((req, res, next) => {
-  console.log(`\n[${new Date().toISOString()}] 🛰️  ${req.method} ${req.url}`);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n[${timestamp}] 🛰️  ${req.method} ${req.url}`);
   console.log(`👉 Headers: ${req.headers['content-type']}`);
+  
   if (req.method === 'POST') {
-    console.log(`📦 Body:`, req.body); // This will no longer be undefined
+    console.log(`📦 Body:`, req.body);
   }
+  
   next();
 });
 
-// 1. Global limiter — applies to ALL routes
-// Protects against general abuse / bots
+// ── Rate Limiters ─────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 100,                   // max 100 requests per IP per 15 min
-  standardHeaders: true,      // sends RateLimit headers in response
+  windowMs: GLOBAL_LIMIT_WINDOW_MS,
+  max: 100,
+  standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Use userId from body if available, else fall back to IP
-    return req.body?.userId || req.ip || "unknown";
-  },
-  handler: (req, res) => {
-    console.warn(`⚠️  Global rate limit hit by: ${req.body?.userId || req.ip}`);
+  keyGenerator: getRateLimitKey,
+  handler: (req: Request, res: Response) => {
+    console.warn(`⚠️  Global rate limit hit by: ${getRateLimitKey(req)}`);
     res.status(429).json({
       error: "Too many requests. Please slow down and try again in a few minutes.",
-      retryAfter: Math.ceil(15 * 60),  // seconds
+      retryAfter: Math.ceil(GLOBAL_LIMIT_WINDOW_MS / 1000),
     });
   },
 });
  
-// 2. Story generation limiter — applies only to AI generation routes
-// Stricter because these calls cost Gemini API credits
 const storyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,  // 1 hour window
-  max: 30,                    // max 30 story generations per user per hour
+  windowMs: STORY_LIMIT_WINDOW_MS,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.body?.userId || req.ip || "unknown";
-  },
-  handler: (req, res) => {
-    console.warn(`🚫 Story rate limit hit by: ${req.body?.userId || req.ip}`);
+  keyGenerator: getRateLimitKey,
+  handler: (req: Request, res: Response) => {
+    console.warn(`🚫 Story rate limit hit by: ${getRateLimitKey(req)}`);
     res.status(429).json({
       error: "You've generated a lot of stories! Take a break and come back in an hour.",
-      retryAfter: Math.ceil(60 * 60),  // seconds
+      retryAfter: Math.ceil(STORY_LIMIT_WINDOW_MS / 1000),
     });
   },
 });
  
-// 3. Burst limiter — prevents rapid-fire requests
-// Stops users from hammering the generate button repeatedly
 const burstLimiter = rateLimit({
-  windowMs: 10 * 1000,  // 10 second window
-  max: 3,               // max 3 requests per 10 seconds
+  windowMs: BURST_LIMIT_WINDOW_MS,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.body?.userId || req.ip || "unknown";
-  },
-  handler: (req, res) => {
-    console.warn(`⚡ Burst rate limit hit by: ${req.body?.userId || req.ip}`);
+  keyGenerator: getRateLimitKey,
+  handler: (req: Request, res: Response) => {
+    console.warn(`⚡ Burst rate limit hit by: ${getRateLimitKey(req)}`);
     res.status(429).json({
       error: "Slow down! Wait a few seconds before generating another story.",
-      retryAfter: 10,
+      retryAfter: Math.ceil(BURST_LIMIT_WINDOW_MS / 1000),
     });
   },
 });
- 
-// ─────────────────────────────────────────
-// APPLY GLOBAL LIMITER TO ALL ROUTES
-// ─────────────────────────────────────────
+
 app.use(globalLimiter);
 
-
-app.get("/", (_, res) => {
+// ── Routes ─────────────────────────────────────────
+app.get("/", (_req: Request, res: Response) => {
   res.send("Backend running");
 });
 
-console.log("✅ Registering Routes...");
 app.get("/api/stories/history", getHistoryHandler); 
 
 app.post(
@@ -106,16 +106,18 @@ app.post(
   storyLimiter,
   generateStoryHandler
 );
+
 app.post(
   "/api/stories/generate-stream",
   burstLimiter,
   storyLimiter,
   generateStoryStreamHandler
 );
+
 app.post("/api/stories/clear-session", clearSessionHandler);
 app.post("/api/stories/load-session", loadSessionHandler);
 
-
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+// ── Server Start ─────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
