@@ -3,7 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 import {
   generateStoryHandler,
@@ -22,8 +22,8 @@ const BURST_LIMIT_WINDOW_MS = 10 * 1000;
 // ── Helpers / Utils ─────────────────────────────────────────
 
 // Extracts the reliable user identifier for rate limiting
-const getRateLimitKey = (req: Request): string => {
-  return req.body?.userId ?? req.ip ?? "unknown";
+const getRateLimitKey = (req: Request, res: Response): string => {
+  return req.body?.userId ?? ipKeyGenerator(req, res) ?? "unknown";
 };
 
 // ── Middlewares ─────────────────────────────────────────
@@ -37,11 +37,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const timestamp = new Date().toISOString();
   console.log(`\n[${timestamp}] 🛰️  ${req.method} ${req.url}`);
   console.log(`👉 Headers: ${req.headers['content-type']}`);
-  
+
   if (req.method === 'POST') {
     console.log(`📦 Body:`, req.body);
   }
-  
+
   next();
 });
 
@@ -60,7 +60,7 @@ const globalLimiter = rateLimit({
     });
   },
 });
- 
+
 const storyLimiter = rateLimit({
   windowMs: STORY_LIMIT_WINDOW_MS,
   max: 30,
@@ -75,7 +75,7 @@ const storyLimiter = rateLimit({
     });
   },
 });
- 
+
 const burstLimiter = rateLimit({
   windowMs: BURST_LIMIT_WINDOW_MS,
   max: 3,
@@ -98,7 +98,7 @@ app.get("/", (_req: Request, res: Response) => {
   res.send("Backend running");
 });
 
-app.get("/api/stories/history", getHistoryHandler); 
+app.get("/api/stories/history", getHistoryHandler);
 
 app.post(
   "/api/stories/generate",
