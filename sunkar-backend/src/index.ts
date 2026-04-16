@@ -13,6 +13,16 @@ import {
   loadSessionHandler,
 } from "./controllers/storyController";
 
+import {
+  submitStoryHandler,
+  getCreatorStoriesHandler,
+  getStoryByIdHandler,
+  togglePublishHandler,
+  getPublicStoriesHandler,
+  deleteStoryHandler,
+  retryStoryHandler,
+} from "./controllers/creatorController";
+
 // ── Constants ─────────────────────────────────────────
 const PORT = 5000;
 const GLOBAL_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -116,6 +126,20 @@ app.post(
 
 app.post("/api/stories/clear-session", clearSessionHandler);
 app.post("/api/stories/load-session", loadSessionHandler);
+
+
+// ── Creator Routes ────────────────────────────────────
+app.post("/api/creator/submit",                    submitStoryHandler);
+app.get("/api/creator/stories",                    getCreatorStoriesHandler);
+app.get("/api/creator/stories/:id",                getStoryByIdHandler);
+app.patch("/api/creator/stories/:id/publish",      togglePublishHandler);
+app.delete("/api/creator/stories/:id",             deleteStoryHandler);
+app.post("/api/creator/stories/:id/retry",         retryStoryHandler);
+
+
+// ── Public Routes ─────────────────────────────────────
+app.get("/api/stories/public",                     getPublicStoriesHandler);
+
 
 // ── Server Start ─────────────────────────────────────────
 app.listen(PORT, () => {

@@ -1,4 +1,4 @@
-import { ArrowRight, Waves, Mic2 } from 'lucide-react';
+import { ArrowRight, Mic2, Waves } from 'lucide-react';
 
 export default function SubmitStory() {
   return (
