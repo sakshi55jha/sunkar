@@ -18,6 +18,13 @@ if(!title || !storyText || !voiceModel || !userId){
     return
 }
 
+  // ── Create user if they don't exist yet ──────────
+  await prisma.user.upsert({
+    where:  { id: String(userId) },
+    update: {},
+    create: { id: String(userId) },
+  });
+
 //creator story record immediately with PROCESSING Status
 //so the creator can see in their dashboard right away
 
@@ -46,7 +53,7 @@ res.json({
 // --Background processing --
 //This runs after the response is sent - non blocking
 
-processStoryAudio(creatorStory.id, storyText, voiceModel, enhanceWithAI === AI)
+processStoryAudio(creatorStory.id, storyText, voiceModel, enhanceWithAI === true)
 }
 
 // Handles the full audio pipeline in bg
@@ -97,7 +104,7 @@ export async function getCreatorStoriesHandler(
 
     if(!userId){
         res.status(404).json({
-            error: "UserID Is Required";
+            error: "UserID Is Required"
         })
         return;
     }

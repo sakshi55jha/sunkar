@@ -1,6 +1,13 @@
+import "dotenv/config";
+
 import textToSpeech from "@google-cloud/text-to-speech";
-import {v2 as cloudinary, UploadStream} from 'cloudinary';
+import {v2 as cloudinary} from 'cloudinary';
 import { Readable } from "stream";
+
+// ── Debug logs — remove after confirming it works ────
+console.log("☁️  Cloudinary Cloud:",  process.env.CLOUDINARY_CLOUD_NAME);
+console.log("☁️  Cloudinary Key:",    process.env.CLOUDINARY_API_KEY);
+console.log("☁️  Cloudinary Secret:", process.env.CLOUDINARY_API_SECRET);
 
 const VOICE_MAP: Record <string, string> = {
  "warm-female":  "en-IN-Neural2-D",
@@ -13,18 +20,31 @@ const DEFAULT_VOICE = "en-IN-Neural2-D";
 
 const MAX_CHARACTERS = 5000;
 
-const ttsClient = new textToSpeech.textToSpeechClient();
+const ttsClient = new textToSpeech.TextToSpeechClient();
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-})
+// cloudinary.config({
+//     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//     api_key:    process.env.CLOUDINARY_API_KEY,
+//     api_secret: process.env.CLOUDINARY_API_SECRET,
+// })
 
 async function uploadAudioToCloudinary(
     audioBuffer: Buffer,
     storyId: string
 ): Promise<string> {
+
+      cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
+    console.log("☁️  Configuring Cloudinary with:", {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  
 return new Promise ((resolve, reject)=>{
     const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -47,7 +67,7 @@ return new Promise ((resolve, reject)=>{
     const readable = new Readable();
     readable.push(audioBuffer);
     readable.push(null);
-    readable.pipe(UploadStream)
+    readable.pipe(uploadStream)
 })
 }
 
@@ -70,7 +90,7 @@ export async function generateAndUploadAudio(
     const [response] = await ttsClient.synthesizeSpeech({
         input: {text: storyText},
         voice: {
-            language: 'en-IN',
+            languageCode: 'en-IN',
             name: voiceName
         },
         audioConfig: {
