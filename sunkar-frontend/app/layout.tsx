@@ -1,3 +1,5 @@
+import { ClerkProvider } from '@clerk/nextjs';
+import type { Metadata } from 'next';
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import { Outfit, Lora } from "next/font/google";
@@ -24,6 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <ClerkProvider>
     <html lang="en" className="dark">
       <body
         className={`${outfit.variable} ${lora.variable} antialiased min-h-screen bg-black text-white font-sans selection:bg-emerald-800/80 selection:text-white`}
@@ -35,5 +38,6 @@ export default function RootLayout({
         </main>
       </body>
     </html>
+    </ClerkProvider>
   );
 }

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import prisma from "../prisma";
-import { executeSunkarPipelineStream, clearSession } from "../services/aiService";
+import { executeSunkarPipelineStream, clearSession, addToHistory } from "../services/aiService";
 
 /**
  * 1. GET HISTORY HANDLER
