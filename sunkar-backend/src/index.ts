@@ -23,6 +23,8 @@ import {
   retryStoryHandler,
 } from "./controllers/creatorController";
 
+import { syncUserHandler } from "./controllers/userController";
+
 // ── Constants ─────────────────────────────────────────
 const PORT = 5000;
 const GLOBAL_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -139,6 +141,9 @@ app.post("/api/creator/stories/:id/retry",         retryStoryHandler);
 
 // ── Public Routes ─────────────────────────────────────
 app.get("/api/stories/public",                     getPublicStoriesHandler);
+
+// ── User Routes ─────────────────────────────────────
+app.post("/api/users/sync",                        syncUserHandler);
 
 
 // ── Server Start ─────────────────────────────────────────

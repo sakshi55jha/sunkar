@@ -1,106 +1,156 @@
+'use client';
+
 import Link from 'next/link';
-import { Headphones, Play } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import { Headphones, Mic2, ArrowRight, Layers } from 'lucide-react';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-
-
-// Fallback images for stories without cover images
-const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1505820013142-f86a3439c5b2?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1471506480208-91b3a4cc78be?auto=format&fit=crop&q=80&w=600',
-];
-
-interface PublicStory{
-     id: string;
-     title: string;
-     mood: string | null;
-     audioUrl: string;
-     createdAt: string
-}
-
-async function fetchPublicStories(): Promise<PublicStory[]>{
-  try{
-    const res = await fetch(`${BACKEND_URL}/api/stories/public`, {
-      cache: 'no-store', //Always fetch fresh o each request
-    });
-    if(!res.ok) return [];
-    return res.json();
-  }catch{
-    return [];
-  }
-}
-
-
-export default async function Home() {
-  const stories = await fetchPublicStories();
+export default function LandingPage() {
+  const { user, isLoaded } = useUser();
 
   return (
-    <div className="max-w-6xl mx-auto px-6 w-full pt-32 pb-32 relative">
-      <div className="absolute top-0 right-10 w-[600px] h-[600px] bg-emerald-900/10 blur-[200px] rounded-full pointer-events-none" />
-      
-      <div className="mb-24 flex flex-col items-center justify-center text-center relative z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-900/40 bg-emerald-950/20 backdrop-blur-md text-[11px] font-bold tracking-widest uppercase mb-8 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-          <Headphones className="w-3.5 h-3.5" /> Audio-First Storytelling
-        </div>
-        <h1 className="text-5xl md:text-7xl font-sans font-medium tracking-tight leading-[1.1]">
-          <span className="text-white">Immersive stories,</span>{' '}
-          <br />
-          <span className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            crafted to be heard.
-          </span>
-        </h1>
-        <p className="text-white/60 text-lg max-w-2xl mt-8 font-normal leading-relaxed">
-          Turn your ideas into calm, emotionally engaging narratives. Sunkar uses AI to transform your thoughts into effortless listening experiences with incredibly realistic voices. No distractions, just the power of audio.
-        </p>
+    <div className="min-h-screen bg-[#000502] text-white overflow-hidden selection:bg-emerald-800/80 selection:text-white">
+
+      {/* ── Ambient background glow ── */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-950/30 blur-[200px] rounded-full" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-emerald-900/10 blur-[200px] rounded-full" />
       </div>
 
-       {stories.length === 0 ? (
-        <div className='text-center py-24'>
-          <p className='text-emerald-900 text-sm font-bold tracking-widest uppercase'>
-            No Stories Published yet
+      {/* ── Hero Section ── */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-32">
+        <div className="flex flex-col items-center text-center mb-20">
+
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-900/40 bg-emerald-950/20 text-[11px] font-bold tracking-widest uppercase mb-8 text-emerald-500">
+            <Layers className="w-3.5 h-3.5" /> Next-Gen Audio Platform
+          </div>
+
+          <h1 className="text-6xl md:text-8xl font-medium tracking-tight leading-[1.05] mb-8 max-w-4xl">
+            <span className="text-white">Stories meant</span>
+            <br />
+            <span className="text-emerald-500 drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+              to be heard.
+            </span>
+          </h1>
+
+          <p className="text-white/50 text-lg max-w-xl leading-relaxed mb-12">
+            Discover immersive audio stories narrated by AI voices that feel
+            genuinely human. Or create your own and share it with the world.
           </p>
+
+          {/* ── Main CTA ── */}
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            {isLoaded && user ? (
+              <Link href="/auth-redirect">
+                <button className="group flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-black font-bold tracking-widest uppercase text-sm rounded-full transition-all active:scale-95 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                  Continue to App
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </Link>
+            ) : (
+              <Link href="/sign-in">
+                <button
+                  className="group flex items-center gap-3 px-8 py-4 bg-emerald-950/40 hover:bg-emerald-900/60 text-white border border-emerald-900/50 font-bold tracking-widest uppercase text-sm rounded-full transition-all active:scale-95"
+                >
+                  Already have an account? Sign In
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
-       ): (
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
-        {stories.map((story, index) => (
-          <Link 
-          href={`/story/${story.id}`} 
-          key={story.id} 
-          className="group flex flex-col bg-[#010603] border border-emerald-950 hover:border-emerald-600/50 rounded-3xl transition-all duration-500 overflow-hidden shadow-2xl hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.2)]"
-          >
-            <div className="relative aspect-square w-full overflow-hidden bg-black">
-              <div className="absolute inset-0 bg-emerald-950/60 mix-blend-color z-10 group-hover:bg-emerald-900/40 transition-all duration-500"></div>
-              <img 
-                src={FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]} 
-                alt={story.title}
-                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-[1.05] filter grayscale group-hover:grayscale-0 hue-rotate-[90deg] transition-all duration-700 ease-in-out"
-              />
-            </div>
-            
-            <div className="p-8 bg-[#010603] flex flex-col gap-8 transition-colors">
-              <div>
-                <p className="text-emerald-700 text-[10px] font-bold uppercase tracking-[0.2em] mb-3">
-                   {story.mood || 'Acoustic Experience'}
-                </p>
-                <h3 className="text-xl font-medium tracking-tight text-white group-hover:text-emerald-500 transition-all duration-500">
-                  {story.title}
-                </h3>
+
+        {/* ── Role Selection Cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          
+          {/* Listener Card */}
+          <div className="group relative p-8 bg-[#010603] border border-emerald-950 hover:border-emerald-800/50 rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1 flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-emerald-950/20 blur-[100px] pointer-events-none rounded-full" />
+
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-950/40 border border-emerald-900/40 flex items-center justify-center mb-6">
+                <Headphones className="w-5 h-5 text-emerald-500" />
               </div>
-              <div className="w-full flex items-center justify-end">
-                <div className="w-10 h-10 rounded-full border border-emerald-900/50 flex items-center justify-center bg-emerald-950/20 group-hover:bg-emerald-600 group-hover:border-emerald-500 transition-all duration-300 text-emerald-500 group-hover:text-black">
-                  <Play className="w-4 h-4 transition-colors" fill="currentColor" />
-                </div>
-              </div>
+
+              <h3 className="text-2xl font-medium text-white mb-3 tracking-tight">
+                For Listeners
+              </h3>
+              <p className="text-white/40 text-sm leading-relaxed mb-8">
+                Explore a growing library of immersive audio stories. Curated moods,
+                real emotions, incredibly natural voices.
+              </p>
+
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Browse stories by mood and genre',
+                  'Stream instantly — no downloads',
+                  'New stories added daily',
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-3 text-sm text-white/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </Link>
-        ))}
-      </div>
-      ) }
-    
+
+            <div className="relative z-10 mt-auto">
+              {(!isLoaded || !user) && (
+                <Link href="/sign-up-listener">
+                  <button className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-emerald-950/30 hover:bg-emerald-900/50 text-white text-xs font-bold tracking-widest uppercase border border-emerald-900/50 hover:border-emerald-600/50 rounded-2xl transition-all">
+                    Sign up to Listen
+                  </button>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Creator Card */}
+          <div className="group relative p-8 bg-[#010603] border border-emerald-900/50 hover:border-emerald-600/50 rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1 shadow-[0_0_40px_rgba(16,185,129,0.05)] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-emerald-900/15 blur-[100px] pointer-events-none rounded-full" />
+            <div className="absolute top-4 right-4 px-3 py-1 bg-emerald-900/30 border border-emerald-700/40 rounded-full text-[10px] font-bold tracking-widest uppercase text-emerald-500">
+              Creator
+            </div>
+
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-900/30 border border-emerald-700/40 flex items-center justify-center mb-6">
+                <Mic2 className="w-5 h-5 text-emerald-400" />
+              </div>
+
+              <h3 className="text-2xl font-medium text-white mb-3 tracking-tight">
+                For Creators
+              </h3>
+              <p className="text-white/40 text-sm leading-relaxed mb-8">
+                Write your story, choose a voice, and let our AI bring it to life.
+                Publish to the world in minutes.
+              </p>
+
+              <ul className="space-y-3 mb-8">
+                {[
+                  'AI-powered voice narration',
+                  'Optional AI story enhancement',
+                  'Publish & manage your library',
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-3 text-sm text-white/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="relative z-10 mt-auto">
+              {(!isLoaded || !user) && (
+                <Link href="/sign-up-creator">
+                  <button className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-black font-bold tracking-widest uppercase text-sm rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                    Become a Creator
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </Link>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </section>
     </div>
   );
 }

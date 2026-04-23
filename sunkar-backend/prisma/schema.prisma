@@ -12,11 +12,14 @@ datasource db {
 }
 
 model User {
-  id      String  @id @default(cuid())
-  name    String?
-  stories Story[]
+  id        String  @id @default(cuid())
+  email     String? @unique
+  name      String?
+  imageUrl  String?
+  role      String?
+  
+  stories   Story[]
   creatorStories CreatorStory[]
-
 }
 
 model Story {
