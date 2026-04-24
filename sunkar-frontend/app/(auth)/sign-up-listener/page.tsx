@@ -11,125 +11,152 @@ type ClerkErrorLike = {
 };
 
 const getClerkErrorMessage = (err: unknown, fallback: string) => {
+  console.error("FULL CLERK ERROR:", err);
+  if (err instanceof Error) return err.message;
   const message = (err as ClerkErrorLike)?.errors?.[0]?.message;
   return message || fallback;
 };
 
 export default function SignUpListener() {
-const { isLoaded, signUp, setActive } = useSignUp();
-  const { signIn, isLoaded: isSignInLoaded } = useSignIn();
+ const { isLoaded, signUp } = useSignUp();
+const { signIn, isLoaded: isSignInLoaded } = useSignIn();
+const { setActive, loaded, client } = useClerk();
   const router = useRouter();
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
 
- console.log("signUp:", signUp);
+  // console.log("signUp:", signUp);
 
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [firstName, setFirstName]   = useState('');
-  const [lastName, setLastName]     = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const [verifying, setVerifying]   = useState(false);
-  const [code, setCode]             = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [code, setCode] = useState('');
 
 
-const handleSignUp = async () => {
-  console.log("signUp exists:", !!signUp);
-
-  if (!signUp) {
-    setError("Clerk is still loading");
-    return;
-  }
-
-  setLoading(true);
-  setError("");
-
-  try {
-    console.log("Creating user...");
-
-    await signUp.create({
-      emailAddress: email,
-      password,
-      firstName,
-      lastName,
-      unsafeMetadata: { role: "user" },
-    });
-
-    console.log("User created");
-
-  await signUp.verifications.sendEmailCode({
-      strategy: "email_code",
-    });
-
-    console.log("Email code sent");
-
-    setVerifying(true);
-  } catch (err: any) {
-    console.log("FULL ERROR:", err);
-    setError(err?.errors?.[0]?.message || "Signup failed");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleGoogleSignUp = async () => {
-   if (!signUp && !isSignInLoaded) {
-      setError('Authentication is still loading. Please try again in a moment.');
+  const handleSignUp = async () => {
+    if (!signUp) {
+      setError("Clerk is still loading");
       return;
     }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await signUp.create({
+        emailAddress: email,
+        password,
+        firstName,
+        lastName,
+        unsafeMetadata: { role: "user" },
+      });
+
+      if (typeof signUp.prepareEmailAddressVerification === 'function') {
+        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      } else if (typeof signUp.prepareVerification === 'function') {
+        await signUp.prepareVerification({ strategy: 'email_code' });
+      } else if (typeof (signUp as any).verifications?.sendEmailCode === 'function') {
+        await (signUp as any).verifications.sendEmailCode({ strategy: 'email_code' });
+      } else {
+        console.error("signUp object keys:", Object.keys(signUp));
+        throw new Error("Clerk SDK error: No email verification method found on signUp");
+      }
+      setVerifying(true);
+    } catch (err: unknown) {
+      setError(getClerkErrorMessage(err, 'Signup failed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // const clerk = useClerk();
+
+  const handleGoogleSignUp = async () => {
     setError('');
     setLoading(true);
     if (typeof window !== 'undefined') localStorage.setItem('sunkar_requested_role', 'user');
+
     try {
-     if (signUp?.authenticateWithRedirect) {
-        await signUp.authenticateWithRedirect({
-          strategy: "oauth_google",
-          redirectUrl: "/sso-callback",
-          redirectUrlComplete: "/auth-redirect"
-        });
-        return;
+      if (!loaded || !client) {
+        throw new Error('Authentication is still loading. Please try again in a moment.');
       }
 
-      if (!isSignInLoaded || !signIn?.authenticateWithRedirect) {
-        throw new Error('Google auth is unavailable. Please refresh and try again.');
-      }
-
-      await signIn.authenticateWithRedirect({
+      await client.signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
         redirectUrlComplete: "/auth-redirect"
       });
     } catch (err: unknown) {
-      setError(getClerkErrorMessage(err, 'Google sign up failed'));
+      if (err instanceof Error && err.message.includes('Authentication is still loading')) {
+        setError(err.message);
+      } else {
+        setError(getClerkErrorMessage(err, 'Google sign up failed'));
+      }
       setLoading(false);
     }
   };
 
   const handleVerify = async () => {
-  if (!signUp) return;
+    if (!signUp) return;
+    setLoading(true);
+    setError('');
 
-  setLoading(true);
-  setError("");
+    try {
+      let result: any;
+      if (typeof signUp.attemptEmailAddressVerification === 'function') {
+        result = await signUp.attemptEmailAddressVerification({ code });
+      } else if (typeof signUp.attemptVerification === 'function') {
+        result = await signUp.attemptVerification({ strategy: 'email_code', code });
+      } else if (typeof (signUp as any).verifications?.verifyEmailCode === 'function') {
+        result = await (signUp as any).verifications.verifyEmailCode({ code });
+      } else {
+        throw new Error("Clerk SDK error: No verify code method found on signUp");
+      }
 
-  try {
-   const result = await signUp.verifications.verifyEmailCode({
-      strategy: "email_code",
-      code,
-    });
+      const finalStatus = result.status || signUp.status;
+      const finalSessionId = result.createdSessionId || signUp.createdSessionId;
+      const finalUserId = result.createdUserId || signUp.createdUserId;
+  
+      
+      if (finalStatus === 'complete') {
+          // Sync user to DB
+           await setActive({ session: finalSessionId });
+        try {
+          const res = await fetch(`${backendUrl}/api/users/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: finalUserId,
+              email: email,
+              name: `${firstName} ${lastName}`.trim(),
+              role: 'user',
+            }),
+          });
+          if (!res.ok) {
+            const errorText = await res.text();
+            alert(`Backend Sync Error: ${errorText}. Check backend terminal!`);
+          }
+        } catch (err) {
+          console.error("Failed to sync user to DB", err);
+          alert(`Network error: Could not reach backend at ${backendUrl}. Is it running?`);
+        }
 
 
+      
 
-    if (result.status === "complete") {
-      await setActive({ session: result.createdSessionId });
-      router.push("/home");
+        router.push('/home');
+      }
+    } catch (err: any) {
+      console.error("VERIFY ERROR:", err);
+      setError(err?.errors?.[0]?.message || err?.message || "Verification failed");
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    setError(err?.errors?.[0]?.message || "Invalid code");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // ── Verification Screen ───────────────────────────
   if (verifying) {
@@ -294,14 +321,14 @@ const handleSignUp = async () => {
 
           <button
             onClick={() => void handleGoogleSignUp()}
-            disabled={loading || (!isSignInLoaded && !signUp)}
+            disabled={loading || !loaded}
             className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-emerald-900/30 text-white text-sm rounded-2xl transition-all flex items-center justify-center gap-3"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
             Sign up with Google
           </button>
