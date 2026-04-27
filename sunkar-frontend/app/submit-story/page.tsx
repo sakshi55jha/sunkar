@@ -2,9 +2,10 @@
 
 import { ArrowRight, Waves, Mic2, Loader2, CheckCircle, XCircle, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const USER_ID = 'user_sneha_2026';
+const { user, isLoaded } = useUser();
 
 type SubmitStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -19,6 +20,11 @@ export default function SubmitStory() {
  const [error, setError] = useState('');
 
   const handleSubmit = async ()=>{
+
+      if (!isLoaded || !user) {
+    setError('User not logged in');
+    return;
+  }
       if (!title.trim() || !storyText.trim() || !voiceModel) {
       setError('Please fill in title, story, and select a voice.');
       return;
@@ -37,7 +43,7 @@ export default function SubmitStory() {
             mood,
             voiceModel,
             enhanceWithAI,
-            userId: USER_ID,
+            userId: user.id,
           })
         })
 

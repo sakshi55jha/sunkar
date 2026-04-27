@@ -19,6 +19,7 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+
   const role = user?.unsafeMetadata?.role || user?.publicMetadata?.role;
   const isCreator = role === 'creator';
   const isListener = role === 'user' || role === 'listener';
@@ -47,7 +48,7 @@ export default function Navbar() {
 
           {isLoaded && user && isCreator && (
             <>
-              <NavLink href="/dashboard" text="DASHBOARD" icon={<LayoutDashboard className="w-3.5 h-3.5" />} active={pathname === '/dashboard'} />
+              <NavLink href="/your-story" text="DASHBOARD" icon={<LayoutDashboard className="w-3.5 h-3.5" />} active={pathname === '/your-story'} />
               <NavLink href="/create" text="CREATE" icon={<PenTool className="w-3.5 h-3.5" />} active={pathname === '/create'} />
               <NavLink href="/submit-story" text="SUBMIT" active={pathname === '/submit-story'} />
             </>

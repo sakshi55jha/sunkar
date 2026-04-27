@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Fingerprint, Edit3, Trash2, ArrowUpRight, Loader2, Globe, EyeOff } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const USER_ID = 'user_sneha_2026';
 
 // Fallback images indexed by story id character sum
 const FALLBACK_IMAGES = [
@@ -32,9 +32,11 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-
 export default function StoryInfo({ params }: { params: { id: string } }) {
-    const [story, setStory]           = useState<Story | null>(null);
+   const { user } = useUser();   // ✅ real logged-in user
+  const userId = user?.id;
+
+  const [story, setStory]           = useState<Story | null>(null);
   const [loading, setLoading]       = useState(true);
   const [isPlaying, setIsPlaying]   = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -103,23 +105,23 @@ export default function StoryInfo({ params }: { params: { id: string } }) {
   const skipForward = ()=>{
     if(!audioRef.current) return;
     audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 15, duration);
-
   }
 
-    const skipBackward = () => {
+  const skipBackward = () => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = Math.max(audioRef.current.currentTime - 15, 0);
   };
 
   // -- Publish Toogle --
   const handleTogglePublish = async ()=>{
-    if(!story) return;
+    if (!story || !userId) return;
+
     setPublishing(true);
     try{
    const res = await fetch(`${BACKEND_URL}/api/creator/stories/${story.id}/publish`, {
      method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isPublished: !story.isPublished, userId: USER_ID }),
+        body: JSON.stringify({ isPublished: !story.isPublished, userId: userId }),
     });
       const data = await res.json();
       setStory(prev => prev ? { ...prev, isPublished: data.isPublished } : prev);
@@ -133,11 +135,11 @@ export default function StoryInfo({ params }: { params: { id: string } }) {
 
   // -- Delete --
   const handleDelete = async () =>{
-    if(!story || !confirm("Delete this story Permanently?")) return;
+    if (!story || !userId || !confirm("Delete this story Permanently?")) return;
     await fetch(`${BACKEND_URL}/api/creator/stories/${story.id}`, {
       method : 'DELETE',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({userId: USER_ID}),
+      body: JSON.stringify({userId: userId}),
     });
     window.location.href = '/dashboard';
   }
