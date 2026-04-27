@@ -3,10 +3,10 @@
 
 import { Headphones, Loader2, Plus, Send, UserCircle2, Bot, User, Trash2, AlertCircle, Clock } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 // ── Constants ─────────────────────────────────────────
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
-const USER_ID = 'user_sneha_2026';
 const STORAGE_KEY = 'sunkar_sessions';
 const MILLISECONDS_IN_DAY = 86400000;
 
@@ -293,7 +293,9 @@ function RateLimitBanner({ rateLimit }: { rateLimit: RateLimitState }) {
 // ── Main Component ─────────────────────────────────────────
 
 export default function Create() {
-  
+  const { user } = useUser();
+  const userId = user?.id;
+
   // ── State ─────────────────────────────────────────
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -301,6 +303,7 @@ export default function Create() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
+
 
   const [rateLimit, setRateLimit] = useState<RateLimitState>({
     isLimited: false,
@@ -451,7 +454,7 @@ export default function Create() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: currentPrompt,
-          userId: USER_ID,
+          userId: userId,
           sessionId: activeSession,
         }),
       });
@@ -559,7 +562,8 @@ export default function Create() {
             <UserCircle2 />
           </div>
           <div>
-            <p className="text-sm font-bold text-emerald-500">Sneha Jha</p>
+            <p className="text-sm font-bold text-emerald-500">
+              {user?.fullName || user?.firstName || 'User'}</p>
           </div>
         </div>
       </aside>

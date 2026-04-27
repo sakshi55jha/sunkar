@@ -5,9 +5,9 @@ import {v2 as cloudinary} from 'cloudinary';
 import { Readable } from "stream";
 
 // ── Debug logs — remove after confirming it works ────
-console.log("☁️  Cloudinary Cloud:",  process.env.CLOUDINARY_CLOUD_NAME);
-console.log("☁️  Cloudinary Key:",    process.env.CLOUDINARY_API_KEY);
-console.log("☁️  Cloudinary Secret:", process.env.CLOUDINARY_API_SECRET);
+console.log("Cloudinary Cloud:",  process.env.CLOUDINARY_CLOUD_NAME);
+console.log("Cloudinary Key:",    process.env.CLOUDINARY_API_KEY);
+console.log("Cloudinary Secret:", process.env.CLOUDINARY_API_SECRET);
 
 const VOICE_MAP: Record <string, string> = {
  "warm-female":  "en-IN-Neural2-D",
