@@ -67,7 +67,7 @@ function AuthRedirectContent() {
       }
 
       if (finalRole === 'creator') {
-        router.push('/dashboard');
+        router.push('/your-story');
       } else if (finalRole === 'user' || finalRole === 'listener') {
         router.push('/home');
       } else {

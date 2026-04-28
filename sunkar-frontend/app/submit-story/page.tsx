@@ -5,11 +5,12 @@ import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const { user, isLoaded } = useUser();
 
 type SubmitStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export default function SubmitStory() {
+  const { user, isLoaded } = useUser();
+
  const [title, setTitle] = useState('');
  const [storyText, setStoryText] = useState('');
  const [mood, setMood] = useState('');
@@ -20,8 +21,9 @@ export default function SubmitStory() {
  const [error, setError] = useState('');
 
   const handleSubmit = async ()=>{
+       const userId = user?.id;
 
-      if (!isLoaded || !user) {
+      if (!isLoaded || !userId) {
     setError('User not logged in');
     return;
   }
@@ -43,7 +45,7 @@ export default function SubmitStory() {
             mood,
             voiceModel,
             enhanceWithAI,
-            userId: user.id,
+            userId,
           })
         })
 
@@ -203,11 +205,65 @@ export default function SubmitStory() {
                   onChange={e => setVoiceModel(e.target.value)}
                   className="w-full bg-black/60 border-b border-emerald-950 px-6 py-5 text-emerald-500 focus:outline-none focus:border-emerald-600/50 transition-colors appearance-none cursor-pointer font-bold tracking-widest uppercase text-xs rounded-t-2xl"
                 >
-                  <option value="" disabled className="text-emerald-900">Select narrator voice</option>
-                  <option value="warm-female" className="bg-black">Warm & Soothing (Female)</option>
-                  <option value="deep-male" className="bg-black">Deep & Resonant (Male)</option>
-                  <option value="storyteller" className="bg-black">The Classic Storyteller</option>
-                  <option value="energetic" className="bg-black">Energetic & Bright</option>
+                 <option value="" disabled className="text-emerald-900">
+  Select narrator voice
+</option>
+
+{/* English Female Voices */}
+<option value="en-female-soft" className="bg-black">
+  English Female Soft
+</option>
+<option value="en-female-warm" className="bg-black">
+  English Female Warm
+</option>
+<option value="en-female-bright" className="bg-black">
+  English Female Bright
+</option>
+<option value="en-female-deep" className="bg-black">
+  English Female Deep
+</option>
+
+{/* English Male Voices */}
+<option value="en-male-deep" className="bg-black">
+  English Male Deep
+</option>
+<option value="en-male-storyteller" className="bg-black">
+  English Male Storyteller
+</option>
+<option value="en-male-calm" className="bg-black">
+  English Male Calm
+</option>
+<option value="en-male-rich" className="bg-black">
+  English Male Rich
+</option>
+
+{/* Hindi Female Voices */}
+<option value="hi-female-soft" className="bg-black">
+  Hindi Female Soft
+</option>
+<option value="hi-female-warm" className="bg-black">
+  Hindi Female Warm
+</option>
+<option value="hi-female-bright" className="bg-black">
+  Hindi Female Bright
+</option>
+<option value="hi-female-deep" className="bg-black">
+  Hindi Female Deep
+</option>
+
+{/* Hindi Male Voices */}
+<option value="hi-male-deep" className="bg-black">
+  Hindi Male Deep
+</option>
+<option value="hi-male-storyteller" className="bg-black">
+  Hindi Male Storyteller
+</option>
+<option value="hi-male-calm" className="bg-black">
+  Hindi Male Calm
+</option>
+<option value="hi-male-rich" className="bg-black">
+  Hindi Male Rich
+</option>
                 </select>
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-900">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

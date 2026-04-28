@@ -4,46 +4,49 @@ import textToSpeech from "@google-cloud/text-to-speech";
 import {v2 as cloudinary} from 'cloudinary';
 import { Readable } from "stream";
 
-// ── Debug logs — remove after confirming it works ────
-console.log("Cloudinary Cloud:",  process.env.CLOUDINARY_CLOUD_NAME);
-console.log("Cloudinary Key:",    process.env.CLOUDINARY_API_KEY);
-console.log("Cloudinary Secret:", process.env.CLOUDINARY_API_SECRET);
 
-const VOICE_MAP: Record <string, string> = {
- "warm-female":  "en-IN-Neural2-D",
-  "deep-male":    "en-IN-Neural2-B",
-  "storyteller":  "en-IN-Neural2-C",
-  "energetic":    "en-IN-Neural2-A",
-}
+const VOICE_MAP: Record<string, string> = {
+  // ── English (India) Premium Story Voices ──
+  "en-female-soft": "en-IN-Chirp3-HD-Achernar",
+  "en-female-warm": "en-IN-Chirp3-HD-Aoede",
+  "en-female-bright": "en-IN-Chirp3-HD-Zephyr",
+  "en-female-deep": "en-IN-Chirp3-HD-Sulafat",
 
-const DEFAULT_VOICE = "en-IN-Neural2-D";
+  "en-male-deep": "en-IN-Chirp3-HD-Achird",
+  "en-male-storyteller": "en-IN-Chirp3-HD-Sadachbia",
+  "en-male-calm": "en-IN-Chirp3-HD-Orus",
+  "en-male-rich": "en-IN-Chirp3-HD-Algenib",
+
+  // ── Hindi Premium Story Voices ──
+  "hi-female-soft": "hi-IN-Chirp3-HD-Achernar",
+  "hi-female-warm": "hi-IN-Chirp3-HD-Aoede",
+  "hi-female-bright": "hi-IN-Chirp3-HD-Zephyr",
+  "hi-female-deep": "hi-IN-Chirp3-HD-Sulafat",
+
+  "hi-male-deep": "hi-IN-Chirp3-HD-Achird",
+  "hi-male-storyteller": "hi-IN-Chirp3-HD-Sadachbia",
+  "hi-male-calm": "hi-IN-Chirp3-HD-Orus",
+  "hi-male-rich": "hi-IN-Chirp3-HD-Algenib",
+};
+
+const DEFAULT_VOICE = "en-female-soft";
 
 const MAX_CHARACTERS = 5000;
 
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
-// cloudinary.config({
-//     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-//     api_key:    process.env.CLOUDINARY_API_KEY,
-//     api_secret: process.env.CLOUDINARY_API_SECRET,
-// })
+    cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 async function uploadAudioToCloudinary(
     audioBuffer: Buffer,
     storyId: string
 ): Promise<string> {
 
-      cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
 
-    console.log("☁️  Configuring Cloudinary with:", {
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
   
 return new Promise ((resolve, reject)=>{
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -85,20 +88,19 @@ export async function generateAndUploadAudio(
             `Story too Long. Max character Allowed is ${MAX_CHARACTERS}`
         );
     }
-    const voiceName = VOICE_MAP[voiceModel] || DEFAULT_VOICE;
-
+  
+     const voiceName = VOICE_MAP[voiceModel] || VOICE_MAP[DEFAULT_VOICE];
     const [response] = await ttsClient.synthesizeSpeech({
         input: {text: storyText},
         voice: {
-            languageCode: 'en-IN',
+            languageCode: voiceName.startsWith("hi-IN") ? "hi-IN" : "en-IN",
             name: voiceName
         },
         audioConfig: {
             audioEncoding: "MP3",
             speakingRate: 0.88,
-            pitch: -1.0,
             volumeGainDb: 1.0,
-            effectsProfileId: ["headphone-class-device"],
+            
         }
     })
 
