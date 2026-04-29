@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Fingerprint, Edit3, Trash2, ArrowUpRight, Loader2, Globe, EyeOff } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+import { useParams } from 'next/navigation';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
@@ -32,9 +33,12 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function StoryInfo({ params }: { params: { id: string } }) {
-   const { user } = useUser();   // ✅ real logged-in user
+export default function StoryInfo() {
+   const { user } = useUser();   
   const userId = user?.id;
+
+  const params = useParams();
+const storyId = params?.id as string;
 
   const [story, setStory]           = useState<Story | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -53,7 +57,7 @@ export default function StoryInfo({ params }: { params: { id: string } }) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [params.id]);
+  }, [storyId]);
 
   // Poll for status updates while story is processing
   useEffect(() => {
@@ -66,7 +70,7 @@ export default function StoryInfo({ params }: { params: { id: string } }) {
 
   const fetchStory = async ()=>{
     try{
-     const res = await fetch(`${BACKEND_URL}/api/creator/stories/${params.id}`);
+     const res = await fetch(`${BACKEND_URL}/api/creator/stories/${storyId}`);
      if(!res.ok) return;
      const data = await res.json();
      setStory(data);
@@ -248,7 +252,7 @@ export default function StoryInfo({ params }: { params: { id: string } }) {
           <div className="flex items-center gap-3">
        {/* Publish / Unpublish button — only show when audio is ready */}
        {
-        story.status === 'READY' && story.userId === USER_ID && (
+        story.status === 'READY' && story.userId === userId && (
               <button
                 onClick={handleTogglePublish}
                 disabled={publishing}

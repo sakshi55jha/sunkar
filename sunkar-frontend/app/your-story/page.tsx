@@ -10,7 +10,7 @@ import {
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 const USER_ID = 'user_sneha_2026';
 
-// ─────────────────────────────────────────
+
 // TYPES
 // ─────────────────────────────────────────
 interface CreatorStory {
@@ -233,11 +233,12 @@ export default function YourStory() {
       {/* Stories grid */}
       {!loading && stories.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {stories.map(story => (
-            <div
-              key={story.id}
-              className="group flex flex-col h-full bg-[#000502] border border-emerald-950 hover:border-emerald-900/50 rounded-[2.5rem] p-8 lg:p-12 transition-all duration-500 shadow-[0_10px_30px_-10px_rgba(16,185,129,0.05)] hover:-translate-y-2 relative overflow-hidden"
-            >
+       {stories.map(story => (
+  <Link
+    key={story.id}
+    href={`/story/${story.id}`}
+    className="group flex flex-col h-full bg-[#000502] border border-emerald-950 hover:border-emerald-900/50 rounded-[2.5rem] p-8 lg:p-12 transition-all duration-500 shadow-[0_10px_30px_-10px_rgba(16,185,129,0.05)] hover:-translate-y-2 relative overflow-hidden"
+  >
               <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-950/20 blur-[150px] transition-colors pointer-events-none rounded-full" />
 
               {/* Top row — meta + actions */}
@@ -254,7 +255,11 @@ export default function YourStory() {
                   {/* Retry button — only for failed stories */}
                   {story.status === 'FAILED' && (
                     <button
-                      onClick={() => handleRetry(story.id)}
+                     onClick={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     handleRetry(story.id);
+                    }}
                       disabled={retryingId === story.id}
                       className="p-3 bg-black hover:bg-amber-950/20 text-emerald-800 hover:text-amber-500 rounded-2xl border border-emerald-900/30 transition-all disabled:opacity-40"
                       title="Retry audio generation"
@@ -269,7 +274,11 @@ export default function YourStory() {
                   {/* Publish / Unpublish — only for ready stories */}
                   {story.status === 'READY' && (
                     <button
-                      onClick={() => handleTogglePublish(story)}
+                      onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTogglePublish(story);
+                    }}
                       disabled={publishingId === story.id}
                       className={`p-3 rounded-2xl border transition-all disabled:opacity-40 ${
                         story.isPublished
@@ -289,14 +298,23 @@ export default function YourStory() {
 
                   {/* Edit — links to story detail page */}
                   <Link href={`/story/${story.id}`}>
-                    <button className="p-3 bg-black hover:bg-emerald-950/20 text-emerald-800 hover:text-emerald-400 rounded-2xl border border-emerald-900/30 transition-all">
+                    <button onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                   }} 
+                  className="p-3 bg-black hover:bg-emerald-950/20 text-emerald-800 hover:text-emerald-400 rounded-2xl border border-emerald-900/30 transition-all">
                       <Edit2 className="w-4 h-4" />
                     </button>
                   </Link>
 
                   {/* Delete */}
                   <button
-                    onClick={() => handleDelete(story.id)}
+                    onClick={(e) =>{
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDelete(story.id);
+                      }}
+
                     disabled={deletingId === story.id}
                     className="p-3 bg-black hover:bg-red-950/40 text-emerald-800 hover:text-red-500 rounded-2xl border border-emerald-900/30 transition-all disabled:opacity-40"
                   >
@@ -352,7 +370,7 @@ export default function YourStory() {
                   </button>
                 </Link>
               </div>
-            </div>
+           </Link>
           ))}
         </div>
       )}
