@@ -296,7 +296,7 @@ export default function YourStory() {
                     </button>
                   )}
 
-                  {/* Edit — links to story detail page */}
+                  {/* Edit — links story detail page */}
                   <Link href={`/story/${story.id}`}>
                     <button onClick={(e) => {
                     e.preventDefault();
