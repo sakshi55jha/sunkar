@@ -1,6 +1,6 @@
 'use client';
 
-import { useSignIn } from '@clerk/nextjs';
+import { useClerk } from '@clerk/nextjs';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ const getClerkErrorMessage = (err: unknown, fallback: string) => {
 };
 
 export default function SignInPage() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+const { loaded, client } = useClerk();
   const router = useRouter();
 
   const [email, setEmail]           = useState('');
@@ -27,7 +27,7 @@ export default function SignInPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!loaded) return;
     setLoading(true);
     setError('');
 
@@ -53,25 +53,29 @@ export default function SignInPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (!isLoaded || !signIn) {
-      setError('Authentication is still loading. Please try again in a moment.');
-      return;
-    }
     setError('');
     setLoading(true);
     // If they sign in with Google but are actually a new user, they might get dropped in /auth-redirect without a role.
     // Setting a fallback role to 'user' just in case, though they will be prompted to pick one.
-    if (typeof window !== 'undefined') localStorage.setItem('sunkar_requested_role', 'user');
+    if (typeof window !== 'undefined')
+      {
+        localStorage.setItem('sunkar_requested_role', 'user');
+      }
 
     try {
-      await signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/auth-redirect"
-      });
+       if (!loaded || !client) {
+      throw new Error('Authentication is still loading.');
+    }
+       await client.signIn.authenticateWithRedirect({
+      strategy: 'oauth_google',
+      redirectUrl: '/sso-callback',
+      redirectUrlComplete: '/auth-redirect',
+    });
+
     } catch (err: unknown) {
-      setError(getClerkErrorMessage(err, 'Google sign in failed'));
-      setLoading(false);
+       console.error("Google SignIn Error:", err); // IMPORTANT
+    setError(getClerkErrorMessage(err, 'Google sign in failed'));
+    setLoading(false);
     }
   };
 
@@ -162,7 +166,7 @@ export default function SignInPage() {
 
           <button
             onClick={() => void handleGoogleSignIn()}
-            disabled={loading || !isLoaded}
+            disabled={loading || !loaded}
             className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-emerald-900/30 text-white text-sm rounded-2xl transition-all flex items-center justify-center gap-3"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
