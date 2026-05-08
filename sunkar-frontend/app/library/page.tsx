@@ -1,38 +1,163 @@
-import { Library, Sparkles } from 'lucide-react';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Library, Sparkles, Loader2, Play, BookmarkCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&q=80&w=800',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800',
+  'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800',
+];
+
+interface SavedStory {
+  id: string;
+  creatorStoryId: string;
+  savedAt: string;
+  creatorStory: {
+    id: string;
+    title: string;
+    mood: string | null;
+    coverImageUrl: string | null;
+    user: {
+      name: string | null;
+      imageUrl: string | null;
+    }
+  }
+}
 
 export default function ListenerLibrary() {
-  return (
-    <div className="w-full max-w-5xl mx-auto px-6 lg:px-12 pt-32 pb-32 flex flex-col items-center relative">
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-950/20 blur-[200px] pointer-events-none rounded-full" />
-      
-      <div className="flex flex-col items-center justify-center py-32 gap-6 relative z-10 text-center">
-        <div className="w-20 h-20 rounded-full bg-emerald-950/20 border border-emerald-900/30 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.05)]">
-          <Library className="w-10 h-10 text-emerald-600" />
-        </div>
-        
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-900/40 bg-emerald-950/20 text-[11px] font-bold tracking-widest uppercase mb-4 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-          <Sparkles className="w-3.5 h-3.5" /> Coming Soon
-        </div>
+  const { user, isLoaded } = useUser();
+  const [savedStories, setSavedStories] = useState<SavedStory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-        <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
-          <span className="text-white">Your Personal</span>{' '}
-          <span className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            Library
-          </span>
-        </h1>
-        
-        <p className="text-white/50 text-lg max-w-xl leading-relaxed mb-8">
-          We are currently crafting a space for you to save, like, and organize your favorite audio stories. This feature will be available soon!
-        </p>
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-        <Link
-          href="/home"
-          className="px-10 py-4 bg-emerald-950/20 text-emerald-500 hover:text-white hover:bg-emerald-900/50 border border-emerald-900/50 rounded-full font-bold tracking-widest uppercase text-sm transition-all shadow-[0_0_20px_rgba(16,185,129,0.05)]"
-        >
-          Discover Stories
-        </Link>
+    const fetchLibrary = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/library/${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSavedStories(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch library', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLibrary();
+  }, [user, isLoaded]);
+
+  if (loading) {
+    return (
+      <div className="w-full min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
       </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="w-full max-w-5xl mx-auto px-6 lg:px-12 pt-32 pb-32 flex flex-col items-center text-center">
+        <h1 className="text-3xl font-medium mb-4">Sign in to view your Library</h1>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-7xl mx-auto px-6 lg:px-8 pt-24 pb-32 relative">
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-950/20 blur-[200px] pointer-events-none rounded-full" />
+      
+      <div className="flex items-center gap-4 mb-12 relative z-10">
+        <div className="w-14 h-14 rounded-full bg-emerald-950/40 border border-emerald-900/30 flex items-center justify-center">
+          <Library className="w-6 h-6 text-emerald-500" />
+        </div>
+        <div>
+          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-white">Your Library</h1>
+          <p className="text-white/50 mt-1">Saved stories to listen to anytime</p>
+        </div>
+      </div>
+
+      {savedStories.length === 0 ? (
+        <div className="w-full bg-[#010603] border border-emerald-950 rounded-[2rem] p-16 flex flex-col items-center justify-center text-center relative z-10">
+          <BookmarkCheck className="w-12 h-12 text-emerald-900 mb-6" />
+          <h2 className="text-2xl font-medium text-white mb-3">Your library is empty</h2>
+          <p className="text-emerald-900/80 mb-8 max-w-md">
+            Start discovering amazing audio stories generated by our creator community and save them here.
+          </p>
+          <Link
+            href="/home"
+            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-black rounded-full font-bold tracking-[0.2em] uppercase text-xs transition-all active:scale-[0.98]"
+          >
+            Discover Stories
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+          {savedStories.map((item) => {
+            const story = item.creatorStory;
+            const coverImage = story.coverImageUrl || FALLBACK_IMAGES[story.id.charCodeAt(0) % FALLBACK_IMAGES.length];
+            
+            return (
+              <Link 
+                key={item.id} 
+                href={`/story/${story.id}`}
+                className="group relative h-[400px] rounded-[2rem] overflow-hidden bg-[#000502] border border-emerald-900/20 hover:border-emerald-600/50 transition-all flex flex-col"
+              >
+                {/* Image Background */}
+                <div className="absolute inset-0 z-0">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-10" />
+                  <img 
+                    src={coverImage}
+                    alt={story.title}
+                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-700"
+                  />
+                </div>
+
+                <div className="relative z-20 flex-1 flex flex-col justify-end p-8">
+                  {story.mood && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full border border-emerald-900/40 bg-black/40 backdrop-blur-md text-[10px] font-bold tracking-widest uppercase text-emerald-500 mb-4 w-fit">
+                      {story.mood}
+                    </span>
+                  )}
+                  
+                  <h3 className="text-2xl font-bold text-white mb-2 leading-tight group-hover:text-emerald-400 transition-colors">
+                    {story.title}
+                  </h3>
+                  
+                  <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/10">
+                    {story.user?.imageUrl ? (
+                      <img src={story.user.imageUrl} alt={story.user.name || 'Creator'} className="w-6 h-6 rounded-full" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-emerald-900/50 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-emerald-500">C</span>
+                      </div>
+                    )}
+                    <span className="text-xs text-white/50 font-medium">
+                      {story.user?.name || 'Anonymous Creator'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Play Button Overlay */}
+                <div className="absolute top-6 right-6 w-12 h-12 bg-black/40 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center z-20 group-hover:bg-emerald-500 group-hover:text-black group-hover:border-emerald-400 transition-all shadow-xl opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0">
+                  <Play className="w-5 h-5 ml-1" fill="currentColor" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

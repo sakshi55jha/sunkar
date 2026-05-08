@@ -139,11 +139,17 @@ app.delete("/api/creator/stories/:id",             deleteStoryHandler);
 app.post("/api/creator/stories/:id/retry",         retryStoryHandler);
 
 
+import { toggleLibraryHandler, getLibraryHandler } from "./controllers/libraryController";
+
 // ── Public Routes ─────────────────────────────────────
 app.get("/api/stories/public",                     getPublicStoriesHandler);
 
 // ── User Routes ─────────────────────────────────────
 app.post("/api/users/sync",                        syncUserHandler);
+
+// ── Library Routes ──────────────────────────────────
+app.post("/api/library/toggle",                    toggleLibraryHandler);
+app.get("/api/library/:userId",                    getLibraryHandler);
 
 
 // ── Server Start ─────────────────────────────────────────

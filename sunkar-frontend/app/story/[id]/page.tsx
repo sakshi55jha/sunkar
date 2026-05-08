@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Fingerprint, Edit3, Trash2, ArrowUpRight, Loader2, Globe, EyeOff } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Fingerprint, Edit3, Trash2, ArrowUpRight, Loader2, Globe, EyeOff, Bookmark } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { useParams } from 'next/navigation';
 
@@ -48,6 +48,8 @@ const storyId = params?.id as string;
   const [duration, setDuration]     = useState(0);
   const [volume, setVolume]         = useState(1);
   const [publishing, setPublishing] = useState(false);
+  const [isSaved, setIsSaved]       = useState(false);
+  const [saving, setSaving]         = useState(false);
 
  const audioRef = useRef<HTMLAudioElement>(null);
   const pollRef  = useRef<NodeJS.Timeout | null>(null);
@@ -55,6 +57,7 @@ const storyId = params?.id as string;
     // Fetch story on mount
   useEffect(() => {
     fetchStory();
+    if (userId) checkIfSaved();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -79,6 +82,41 @@ const storyId = params?.id as string;
    //ignore
     }finally{
       setLoading(false);
+    }
+  };
+
+  const checkIfSaved = async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/library/${userId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setIsSaved(data.some((item: any) => item.creatorStoryId === storyId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!userId) {
+      alert("Please sign in to save stories!");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/library/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, creatorStoryId: storyId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsSaved(data.isSaved);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -252,6 +290,18 @@ const storyId = params?.id as string;
           </div>
           
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleToggleSave}
+              disabled={saving}
+              className={`p-3 rounded-xl border transition-all ${
+                isSaved 
+                  ? 'bg-emerald-600/20 text-emerald-500 border-emerald-500/50 hover:bg-emerald-600/30' 
+                  : 'bg-black hover:bg-emerald-950/20 text-emerald-800 hover:text-emerald-500 border-emerald-900/40 hover:border-emerald-900'
+              }`}
+              title={isSaved ? "Remove from Library" : "Save to Library"}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bookmark className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} />}
+            </button>
        {/* Publish / Unpublish button — only show when audio is ready */}
        {
         story.status === 'READY' && story.userId === userId && (
