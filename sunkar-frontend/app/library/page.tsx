@@ -58,15 +58,7 @@ export default function ListenerLibrary() {
     fetchLibrary();
   }, [user, isLoaded]);
 
-  if (loading) {
-    return (
-      <div className="w-full min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
+  if (!user && !loading) {
     return (
       <div className="w-full max-w-5xl mx-auto px-6 lg:px-12 pt-32 pb-32 flex flex-col items-center text-center">
         <h1 className="text-3xl font-medium mb-4">Sign in to view your Library</h1>
@@ -88,7 +80,22 @@ export default function ListenerLibrary() {
         </div>
       </div>
 
-      {savedStories.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-[400px] rounded-[2rem] bg-[#010603] border border-emerald-950 flex flex-col justify-end p-8 overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/10 via-transparent to-transparent animate-pulse" />
+              <div className="w-20 h-5 bg-emerald-950/50 rounded-full mb-4 animate-pulse" />
+              <div className="w-3/4 h-8 bg-emerald-950/40 rounded-lg mb-2 animate-pulse" />
+              <div className="w-1/2 h-8 bg-emerald-950/40 rounded-lg animate-pulse" />
+              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-emerald-950/30">
+                <div className="w-6 h-6 rounded-full bg-emerald-950/50 animate-pulse" />
+                <div className="w-24 h-3 bg-emerald-950/40 rounded-full animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : savedStories.length === 0 ? (
         <div className="w-full bg-[#010603] border border-emerald-950 rounded-[2rem] p-16 flex flex-col items-center justify-center text-center relative z-10">
           <BookmarkCheck className="w-12 h-12 text-emerald-900 mb-6" />
           <h2 className="text-2xl font-medium text-white mb-3">Your library is empty</h2>

@@ -224,15 +224,30 @@ export default function YourStory() {
         </p>
       </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-8 h-8 text-emerald-800 animate-spin" />
+      {/* Loading state - Premium Skeletons */}
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="group relative bg-[#010603] border border-emerald-950/60 rounded-[2rem] p-8 flex flex-col md:flex-row gap-8 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/5 via-transparent to-transparent animate-pulse" />
+              <div className="flex flex-col justify-between w-full md:w-auto md:min-w-[140px] shrink-0 gap-6 z-10">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-950/40 animate-pulse" />
+                <div className="w-full h-8 bg-emerald-950/40 rounded-xl animate-pulse mt-4" />
+                <div className="w-full h-8 bg-emerald-950/40 rounded-xl animate-pulse" />
+              </div>
+              <div className="flex-1 space-y-4 relative z-10">
+                <div className="w-3/4 h-8 bg-emerald-950/50 rounded-lg animate-pulse" />
+                <div className="w-1/2 h-4 bg-emerald-950/30 rounded-full animate-pulse" />
+                <div className="w-1/3 h-4 bg-emerald-950/30 rounded-full animate-pulse" />
+                <div className="pt-8 mt-auto flex items-center justify-between">
+                  <div className="w-24 h-4 bg-emerald-950/40 rounded-full animate-pulse" />
+                  <div className="w-14 h-14 bg-emerald-950/30 rounded-full animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && stories.length === 0 && (
+      ) : stories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 gap-6">
           <div className="w-16 h-16 rounded-full bg-emerald-950/20 border border-emerald-900/30 flex items-center justify-center">
             <Headphones className="w-7 h-7 text-emerald-900" />
