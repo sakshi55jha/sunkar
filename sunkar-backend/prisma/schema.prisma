@@ -39,6 +39,7 @@ model CreatorStory {
   audioUrl       String?
   coverImageUrl  String?
   status         CreatorStoryStatus  @default(PROCESSING)
+  errorLogs      String?             @db.Text
   isPublished    Boolean             @default(false)
   userId         String
   user           User                @relation(fields: [userId], references: [id])

@@ -88,13 +88,18 @@ async function processStoryAudio(
 
         console.log(`Audio Ready for story: ${storyId}`);
 
-    }catch(error){
+    }catch(error: any){
         console.error(`Audio not generated for story ${storyId}:`, error);
 
-        //mark as Failed so frontend can show retry option
+        const errorMessage = error?.message || String(error) || "Unknown Error";
+
+        //mark as Failed so frontend can show retry option and error log
         await prisma.creatorStory.update({
             where : {id: storyId},
-            data: {status: "FAILED"}
+            data: {
+                status: "FAILED",
+                errorLogs: errorMessage
+            }
         })
     }
 }
@@ -297,7 +302,10 @@ export async function retryStoryHandler(
 
     await prisma.creatorStory.update({
         where: {id},
-        data: {status: "PROCESSING"},
+        data: {
+            status: "PROCESSING",
+            errorLogs: null
+        },
     });
 
     res.json({

@@ -21,6 +21,7 @@ interface CreatorStory {
   voiceModel:  string;
   audioUrl:    string | null;
   status:      'PROCESSING' | 'READY' | 'FAILED';
+  errorLogs:   string | null;
   isPublished: boolean;
   createdAt:   string;
 }
@@ -362,6 +363,12 @@ export default function YourStory() {
                     <p className="text-emerald-700 text-[11px] font-bold tracking-widest uppercase flex items-center gap-1.5">
                       <Globe className="w-3 h-3" /> Published
                     </p>
+                  )}
+                  {story.status === 'FAILED' && story.errorLogs && (
+                    <div className="mt-4 p-4 bg-red-950/20 border border-red-900/30 rounded-xl">
+                      <p className="text-red-400 text-[11px] font-bold tracking-widest uppercase mb-1">Error Log</p>
+                      <p className="text-red-300/80 text-xs leading-relaxed font-mono">{story.errorLogs}</p>
+                    </div>
                   )}
                 </div>
               </div>
