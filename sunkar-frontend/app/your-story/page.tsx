@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+
 import Link from 'next/link';
 import {
   Edit2, Trash2, Headphones, Play, Library,
@@ -8,7 +10,6 @@ import {
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const USER_ID = 'user_sneha_2026';
 
 
 // TYPES
@@ -76,32 +77,43 @@ function StatusBadge({ status }: { status: CreatorStory['status'] }) {
 // COMPONENT
 // ─────────────────────────────────────────
 export default function YourStory() {
+  const { user, isLoaded } = useUser();
+
+  const USER_ID = user?.id;
+
   const [stories, setStories]   = useState<CreatorStory[]>([]);
   const [loading, setLoading]   = useState(true);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [retryingId, setRetryingId]   = useState<string | null>(null);
 
-  // Load stories on mount
+   // Load stories on mount
   useEffect(() => {
-    fetchStories();
-  }, []);
+    if (isLoaded && USER_ID) {
+      fetchStories();
+    }
+  }, [isLoaded, USER_ID]);
 
   // Poll every 4 seconds if any story is still processing
   useEffect(() => {
     const hasProcessing = stories.some(s => s.status === 'PROCESSING');
-    if (!hasProcessing) return;
+
+    if (!hasProcessing || !USER_ID) return;
+
 
     const interval = setInterval(fetchStories, 4000);
     return () => clearInterval(interval);
-  }, [stories]);
+  }, [stories, USER_ID]);
 
   const fetchStories = async () => {
+        if (!USER_ID) return;
+
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/creator/stories?userId=${USER_ID}`
       );
       if (!res.ok) return;
+
       const data = await res.json();
       setStories(data);
     } catch {
@@ -114,6 +126,9 @@ export default function YourStory() {
   // ── Delete story ──────────────────────────────────
   const handleDelete = async (storyId: string) => {
     if (!confirm('Delete this story permanently?')) return;
+
+        if (!USER_ID) return;
+
 
     setDeletingId(storyId);
     try {
@@ -132,6 +147,7 @@ export default function YourStory() {
 
   // ── Toggle publish / unpublish ────────────────────
   const handleTogglePublish = async (story: CreatorStory) => {
+        if (!USER_ID) return;
     setPublishingId(story.id);
     try {
       const res = await fetch(
@@ -160,6 +176,8 @@ export default function YourStory() {
 
   // ── Retry failed audio generation ────────────────
   const handleRetry = async (storyId: string) => {
+        if (!USER_ID) return;
+
     setRetryingId(storyId);
     try {
       await fetch(`${BACKEND_URL}/api/creator/stories/${storyId}/retry`, {

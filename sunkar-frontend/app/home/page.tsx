@@ -19,6 +19,7 @@ interface PublicStory{
      title: string;
      mood: string | null;
      audioUrl: string;
+     coverImageUrl?: string | null;
      createdAt: string
 }
 
@@ -75,7 +76,7 @@ export default async function Home() {
             <div className="relative aspect-square w-full overflow-hidden bg-black">
               <div className="absolute inset-0 bg-emerald-950/60 mix-blend-color z-10 group-hover:bg-emerald-900/40 transition-all duration-500"></div>
               <img 
-                src={FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]} 
+                src={story.coverImageUrl || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]} 
                 alt={story.title}
                 className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-[1.05] filter grayscale group-hover:grayscale-0 hue-rotate-[90deg] transition-all duration-700 ease-in-out"
               />

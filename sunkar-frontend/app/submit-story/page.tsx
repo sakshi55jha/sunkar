@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowRight, Waves, Mic2, Loader2, CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, Waves, Mic2, Loader2, CheckCircle, XCircle, Sparkles, Image as ImageIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
@@ -15,6 +16,7 @@ export default function SubmitStory() {
  const [storyText, setStoryText] = useState('');
  const [mood, setMood] = useState('');
  const [voiceModel, setVoiceModel] = useState('');
+ const [coverImageUrl, setCoverImageUrl] = useState('');
  const [enhanceWithAI, setEnhanceWithAI] = useState(false);
  const [status, setStatus] = useState<SubmitStatus>('idle');
  const [storyId, setStoryId] = useState('');
@@ -44,6 +46,7 @@ export default function SubmitStory() {
             storyText,
             mood,
             voiceModel,
+            coverImageUrl: coverImageUrl.trim() || undefined,
             enhanceWithAI,
             userId,
           })
@@ -82,12 +85,13 @@ export default function SubmitStory() {
               Generating Audio...
             </span>
           </div>
-          <a
-            href="/dashboard"
+                   <Link
+            href="/your-story"
             className="px-10 py-4 bg-emerald-950/20 text-emerald-500 hover:text-white hover:bg-emerald-900/50 border border-emerald-900/50 rounded-full font-bold tracking-widest uppercase text-sm transition-all"
           >
             Go to Dashboard
-          </a>
+          </Link>
+
         </div>
       </div>
     );
@@ -95,10 +99,9 @@ export default function SubmitStory() {
 
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-6 lg:px-12 pt-24 pb-32 flex flex-col items-center relative">
-      
-      <div className="flex flex-col items-center mb-20 text-center relative z-10 w-full">
-        <h1 className="text-5xl md:text-6xl font-medium tracking-tight mb-8">
+    <div className="w-full max-w-7xl mx-auto px-6 lg:px-8 pt-24 pb-32 flex flex-col items-center relative">
+      <div className="flex flex-col items-center mb-16 text-center relative z-10 w-full">
+        <h1 className="text-5xl md:text-7xl font-sans font-medium tracking-tight mb-6">
           <span className="text-white/40">Bring your writing</span> <br className="hidden md:block"/>
           <span className="text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.1)]">
             to life with audio
@@ -109,11 +112,15 @@ export default function SubmitStory() {
         </p>
       </div>
 
-      <div className="w-full bg-[#000502] border border-emerald-950 shadow-[0_20px_40px_-20px_rgba(16,185,129,0.05)] p-8 md:p-14 rounded-[3rem] relative z-10 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-950/20 blur-[200px] pointer-events-none rounded-full" />
+      <div className="w-full grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 relative z-10">
+        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-emerald-950/10 blur-[200px] pointer-events-none rounded-full" />
+
+        {/* LEFT COLUMN: Editor */}
+        <div className="bg-[#010603] border border-emerald-950 shadow-[0_20px_40px_-20px_rgba(16,185,129,0.05)] rounded-[2.5rem] p-8 md:p-10 flex flex-col gap-8 relative overflow-hidden group/editor focus-within:border-emerald-900/50 transition-colors">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/10 via-transparent to-transparent opacity-0 group-focus-within/editor:opacity-100 transition-opacity duration-700 pointer-events-none" />
           
-          <div className="space-y-4 group">
-            <label htmlFor="title" className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-3 transition-colors group-focus-within:text-emerald-500">
+          <div className="space-y-3 relative z-10">
+            <label htmlFor="title" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2 transition-colors">
                Story Title
             </label>
             <input 
@@ -121,151 +128,168 @@ export default function SubmitStory() {
               type="text" 
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full bg-black/60 border-b border-emerald-950 px-6 py-5 text-white placeholder-emerald-950 focus:outline-none focus:border-emerald-600/50 transition-all font-medium tracking-wide text-lg rounded-t-2xl"
+              className="w-full bg-transparent border-b border-emerald-950 pb-4 text-3xl text-white placeholder-emerald-950/40 focus:outline-none focus:border-emerald-500 transition-all font-medium tracking-tight"
               placeholder="e.g. A Cabin in the Woods"
             />
           </div>
 
-          <div className="space-y-4 group">
-            <label htmlFor="desc" className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-3 transition-colors group-focus-within:text-emerald-500">
-               Your Narrative
-            </label>
+          <div className="space-y-3 relative z-10 flex-1 flex flex-col">
+            <div className="flex items-center justify-between">
+              <label htmlFor="desc" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2 transition-colors">
+                Your Narrative
+              </label>
+              <span className={`text-[10px] font-bold tracking-widest ${storyText.length > 4500 ? 'text-red-500' : storyText.length > 3500 ? 'text-amber-500' : 'text-emerald-900'}`}>
+                {storyText.length} / 5000
+              </span>
+            </div>
             <textarea 
               id="desc"
-              rows={8}
               value={storyText}
               onChange={e => setStoryText(e.target.value)}
-              className="w-full bg-black/60 border-b border-emerald-950 p-6 text-white/80 placeholder-emerald-950 focus:outline-none focus:border-emerald-600/50 transition-all resize-none text-[15px] leading-relaxed rounded-t-2xl custom-scrollbar"
+              className="w-full flex-1 min-h-[400px] bg-transparent border-none text-white/80 placeholder-emerald-950/30 focus:outline-none resize-none text-lg leading-relaxed custom-scrollbar py-2"
               placeholder="The rain pattered gently against the glass..."
             />
-              {/* Character count */}
-              <p className={`text-right text-[11px] font-bold tracking-widest ${
-              storyText.length > 4500 ? 'text-red-500' :
-              storyText.length > 3500 ? 'text-amber-500' :
-              'text-emerald-900'
-            }`}>
-              {storyText.length} / 5000
-            </p>
-
           </div>
-         
-                {/* AI Enhancement Toggle */}
+        </div>
+
+        {/* RIGHT COLUMN: Settings */}
+        <div className="flex flex-col gap-6">
+          {/* Cover Image Card */}
+          <div className="bg-[#010603] border border-emerald-950 rounded-[2rem] p-8 transition-colors hover:border-emerald-900/30 relative z-10">
+            <label htmlFor="coverImageUrl" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2 mb-6">
+               <ImageIcon className="w-3.5 h-3.5" /> Cover Image (Optional)
+            </label>
+            
+            {!coverImageUrl ? (
+              <div className="relative group cursor-pointer">
+                <input 
+                  id="coverImageUrl"
+                  type="file" 
+                  accept="image/*"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setCoverImageUrl(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    } else {
+                      setCoverImageUrl('');
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div className="w-full h-32 border border-dashed border-emerald-900/40 rounded-2xl bg-emerald-950/10 flex flex-col items-center justify-center gap-2 group-hover:border-emerald-600/50 group-hover:bg-emerald-950/20 transition-all">
+                  <ImageIcon className="w-6 h-6 text-emerald-800 group-hover:text-emerald-500 transition-colors" />
+                  <span className="text-xs font-medium text-emerald-700 group-hover:text-emerald-500 transition-colors">Click to upload image</span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative w-full aspect-[4/3] group/preview rounded-2xl overflow-hidden border border-emerald-900/50">
+                <img 
+                  src={coverImageUrl} 
+                  alt="Cover Preview" 
+                  className="w-full h-full object-cover" 
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                  <button
+                    type="button"
+                    onClick={() => setCoverImageUrl('')}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-500/30"
+                  >
+                    <X className="w-3.5 h-3.5" /> Remove
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* AI Enhance Card */}
           <div
             onClick={() => setEnhanceWithAI(!enhanceWithAI)}
-            className={`flex items-center justify-between p-6 rounded-2xl border cursor-pointer transition-all ${
+            className={`p-6 rounded-[2rem] border cursor-pointer transition-all flex items-center justify-between group relative z-10 ${
               enhanceWithAI
-                ? 'bg-emerald-950/30 border-emerald-700/50'
-                : 'bg-black/30 border-emerald-950 hover:border-emerald-900/50'
+                ? 'bg-emerald-950/20 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                : 'bg-[#010603] border-emerald-950 hover:border-emerald-900/50'
             }`}
           >
-         <div className="flex items-center gap-4">
-              <Sparkles className={`w-5 h-5 ${enhanceWithAI ? 'text-emerald-400' : 'text-emerald-900'}`} />
+            <div className="flex items-center gap-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${enhanceWithAI ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-950/30 text-emerald-800'}`}>
+                <Sparkles className="w-5 h-5" />
+              </div>
               <div>
-                <p className={`text-sm font-bold tracking-wide ${enhanceWithAI ? 'text-emerald-400' : 'text-emerald-900'}`}>
+                <p className={`text-sm font-bold tracking-wide transition-colors ${enhanceWithAI ? 'text-white' : 'text-emerald-700 group-hover:text-emerald-500'}`}>
                   Enhance with AI
                 </p>
-                <p className="text-[11px] text-white/30 mt-0.5">
-                  Gemini will polish your writing before converting to audio
+                <p className="text-[11px] text-white/40 mt-1">
+                  Gemini polishes your writing
                 </p>
               </div>
             </div>
             <div className={`w-12 h-6 rounded-full transition-all relative ${
-              enhanceWithAI ? 'bg-emerald-600' : 'bg-emerald-950'
+              enhanceWithAI ? 'bg-emerald-500' : 'bg-emerald-950'
             }`}>
               <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
-                enhanceWithAI ? 'left-7' : 'left-1'
+                enhanceWithAI ? 'left-7 shadow-sm' : 'left-1'
               }`} />
             </div>
           </div>
 
-            {/* Mood + Voice */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div className="space-y-4 group">
-              <label htmlFor="mood" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2 group-focus-within:text-emerald-500 transition-colors">
-                 <Waves className="w-3 h-3" /> Emotional Tone
+          {/* Tone & Voice Card */}
+          <div className="bg-[#010603] border border-emerald-950 rounded-[2rem] p-8 flex flex-col gap-6 relative z-10">
+            <div className="space-y-3">
+              <label htmlFor="mood" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2">
+                 <Waves className="w-3.5 h-3.5" /> Emotional Tone
               </label>
               <input 
                 id="mood"
                 type="text" 
                 value={mood}
                 onChange={e => setMood(e.target.value)}
-                className="w-full bg-black/60 border-b border-emerald-950 px-6 py-5 text-white/80 placeholder-emerald-950 focus:outline-none focus:border-emerald-600/50 transition-colors font-medium text-[15px] rounded-t-2xl"
-                placeholder="calm, uplifting, mysterious"
+                className="w-full bg-emerald-950/10 border border-emerald-900/30 px-5 py-4 text-white placeholder-emerald-950/50 focus:outline-none focus:border-emerald-500/50 transition-all font-medium text-sm rounded-xl"
+                placeholder="e.g. calm, uplifting, mysterious"
               />
             </div>
 
-            <div className="space-y-4 group">
-              <label htmlFor="voice" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2 group-focus-within:text-emerald-500 transition-colors">
-                 <Mic2 className="w-3 h-3" /> Voice Model
+            <div className="space-y-3">
+              <label htmlFor="voice" className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 flex items-center gap-2">
+                 <Mic2 className="w-3.5 h-3.5" /> Voice Model
               </label>
               <div className="relative">
                 <select 
                   id="voice"
                   value={voiceModel}
                   onChange={e => setVoiceModel(e.target.value)}
-                  className="w-full bg-black/60 border-b border-emerald-950 px-6 py-5 text-emerald-500 focus:outline-none focus:border-emerald-600/50 transition-colors appearance-none cursor-pointer font-bold tracking-widest uppercase text-xs rounded-t-2xl"
+                  className="w-full bg-emerald-950/10 border border-emerald-900/30 px-5 py-4 text-emerald-400 focus:outline-none focus:border-emerald-500/50 transition-colors appearance-none cursor-pointer font-bold tracking-widest uppercase text-xs rounded-xl"
                 >
-                 <option value="" disabled className="text-emerald-900">
-  Select narrator voice
-</option>
-
-{/* English Female Voices */}
-<option value="en-female-soft" className="bg-black">
-  English Female Soft
-</option>
-<option value="en-female-warm" className="bg-black">
-  English Female Warm
-</option>
-<option value="en-female-bright" className="bg-black">
-  English Female Bright
-</option>
-<option value="en-female-deep" className="bg-black">
-  English Female Deep
-</option>
-
-{/* English Male Voices */}
-<option value="en-male-deep" className="bg-black">
-  English Male Deep
-</option>
-<option value="en-male-storyteller" className="bg-black">
-  English Male Storyteller
-</option>
-<option value="en-male-calm" className="bg-black">
-  English Male Calm
-</option>
-<option value="en-male-rich" className="bg-black">
-  English Male Rich
-</option>
-
-{/* Hindi Female Voices */}
-<option value="hi-female-soft" className="bg-black">
-  Hindi Female Soft
-</option>
-<option value="hi-female-warm" className="bg-black">
-  Hindi Female Warm
-</option>
-<option value="hi-female-bright" className="bg-black">
-  Hindi Female Bright
-</option>
-<option value="hi-female-deep" className="bg-black">
-  Hindi Female Deep
-</option>
-
-{/* Hindi Male Voices */}
-<option value="hi-male-deep" className="bg-black">
-  Hindi Male Deep
-</option>
-<option value="hi-male-storyteller" className="bg-black">
-  Hindi Male Storyteller
-</option>
-<option value="hi-male-calm" className="bg-black">
-  Hindi Male Calm
-</option>
-<option value="hi-male-rich" className="bg-black">
-  Hindi Male Rich
-</option>
+                  <option value="" disabled className="text-emerald-900">Select narrator voice</option>
+                  <optgroup label="English Female" className="bg-[#000502] text-white">
+                    <option value="en-female-soft">English Female Soft</option>
+                    <option value="en-female-warm">English Female Warm</option>
+                    <option value="en-female-bright">English Female Bright</option>
+                    <option value="en-female-deep">English Female Deep</option>
+                  </optgroup>
+                  <optgroup label="English Male" className="bg-[#000502] text-white">
+                    <option value="en-male-deep">English Male Deep</option>
+                    <option value="en-male-storyteller">English Male Storyteller</option>
+                    <option value="en-male-calm">English Male Calm</option>
+                    <option value="en-male-rich">English Male Rich</option>
+                  </optgroup>
+                  <optgroup label="Hindi Female" className="bg-[#000502] text-white">
+                    <option value="hi-female-soft">Hindi Female Soft</option>
+                    <option value="hi-female-warm">Hindi Female Warm</option>
+                    <option value="hi-female-bright">Hindi Female Bright</option>
+                    <option value="hi-female-deep">Hindi Female Deep</option>
+                  </optgroup>
+                  <optgroup label="Hindi Male" className="bg-[#000502] text-white">
+                    <option value="hi-male-deep">Hindi Male Deep</option>
+                    <option value="hi-male-storyteller">Hindi Male Storyteller</option>
+                    <option value="hi-male-calm">Hindi Male Calm</option>
+                    <option value="hi-male-rich">Hindi Male Rich</option>
+                  </optgroup>
                 </select>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-900">
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-800">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -274,39 +298,35 @@ export default function SubmitStory() {
             </div>
           </div>
 
-           {/* Error */}
+          {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 p-4 bg-red-950/20 border border-red-900/40 rounded-2xl">
+            <div className="flex items-center gap-3 p-4 bg-red-950/20 border border-red-900/40 rounded-2xl animate-in fade-in slide-in-from-top-2 relative z-10">
               <XCircle className="w-5 h-5 text-red-500 shrink-0" />
-              <p className="text-red-400 text-sm">{error}</p>
+              <p className="text-red-400 text-sm font-medium">{error}</p>
             </div>
           )}
 
-         {/* submit button */}
+          {/* Submit Button */}
+          <button 
+            type="button" 
+            onClick={handleSubmit}
+            disabled={status === 'loading'}
+            className="w-full mt-auto h-16 bg-emerald-600 hover:bg-emerald-500 text-black rounded-[2rem] font-bold tracking-[0.2em] uppercase text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-4 shadow-[0_0_30px_rgba(16,185,129,0.3)] group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 relative z-10"
+          >
+            {status === 'loading' ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                Generate Audio
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </button>
 
-          <div className="pt-10 w-full flex justify-end">
-            <button 
-              type="button" 
-              onClick={handleSubmit}
-              disabled={status === 'loading'}
-
-              className="w-full md:w-auto px-12 py-5 bg-emerald-950/20 text-emerald-500 hover:text-white hover:bg-emerald-900/50 border border-emerald-900/50 rounded-full font-bold tracking-widest uppercase text-sm transition-all active:scale-95 flex items-center justify-center gap-4 shadow-[0_0_20px_rgba(16,185,129,0.05)] group"
-            >
-              
-             {status === 'loading' ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  Generate Audio
-                  <ArrowRight className="w-5 h-5 -mt-0.5 group-hover:translate-x-1 transition-all" />
-                </>
-              )}
-            </button>
-          </div>
-          
+        </div>
       </div>
     </div>
   );

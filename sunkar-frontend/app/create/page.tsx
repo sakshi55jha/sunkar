@@ -507,7 +507,7 @@ export default function Create() {
   // ── Render ─────────────────────────────────────────
 
   return (
-    <div className="flex h-screen w-full max-w-[1440px] mx-auto bg-[#000502] text-white p-4 md:p-6 gap-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-9rem)] w-full max-w-[1440px] mx-auto bg-[#000502] text-white p-4 md:p-6 gap-6 overflow-hidden">
       
       <aside className="w-80 hidden md:flex flex-col bg-emerald-950/10 border border-emerald-900/20 rounded-[2rem] p-6">
         <button

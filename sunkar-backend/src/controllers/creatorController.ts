@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import prisma from "../prisma";
 import { generateAndUploadAudio } from "src/services/audioService";
 import { enhanceStoryText } from "src/services/enhanceService";
+import { uploadImageToCloudinary } from "src/services/imageService";
 
 
 // -- Submit story handller --
@@ -9,7 +10,7 @@ import { enhanceStoryText } from "src/services/enhanceService";
 // generates to audio, upload to cloudinary, save to db.
 
 export async function submitStoryHandler(req: Request, res: Response): Promise<void>{
-const {title, storyText, mood, voiceModel, enhanceWithAI, userId} = req.body;
+const {title, storyText, mood, voiceModel, coverImageUrl, enhanceWithAI, userId} = req.body;
 
 if(!title || !storyText || !voiceModel || !userId){
     res.status(404).json({
@@ -25,6 +26,19 @@ if(!title || !storyText || !voiceModel || !userId){
     create: { id: String(userId) },
   });
 
+// Check if coverImageUrl is a base64 string and upload it
+let finalCoverImageUrl = coverImageUrl;
+if (coverImageUrl && coverImageUrl.startsWith('data:image')) {
+  try {
+    // Generate a temporary ID or just use userId for the file name
+    finalCoverImageUrl = await uploadImageToCloudinary(coverImageUrl, String(userId));
+  } catch (error) {
+    console.error("Image upload failed:", error);
+    // Fallback to null if upload fails
+    finalCoverImageUrl = null;
+  }
+}
+
 //creator story record immediately with PROCESSING Status
 //so the creator can see in their dashboard right away
 
@@ -34,6 +48,7 @@ const creatorStory = await prisma.creatorStory.create({
         originalText: storyText,
         mood: mood || null ,
         voiceModel,
+        coverImageUrl: finalCoverImageUrl || null,
         status: "PROCESSING",
         isPublished: false,
         userId: String(userId)
@@ -118,6 +133,7 @@ export async function getCreatorStoriesHandler(
       mood:        true,
       voiceModel:  true,
       audioUrl:    true,
+      coverImageUrl: true,
       status:      true,
       isPublished: true,
       createdAt:   true,
@@ -143,6 +159,7 @@ export async function getStoryByIdHandler(
       enhancedText:  true,
       mood:          true,
       audioUrl:      true,
+      coverImageUrl: true,
       status:        true,
       isPublished:   true,
       createdAt:     true,
@@ -220,6 +237,7 @@ export async function getPublicStoriesHandler(
         title: true,
         mood: true,
         audioUrl: true,
+        coverImageUrl: true,
         createdAt: true
     }
   })

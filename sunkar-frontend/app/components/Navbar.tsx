@@ -24,11 +24,13 @@ export default function Navbar() {
   const isCreator = role === 'creator';
   const isListener = role === 'user' || role === 'listener';
 
+  if (pathname === '/') return null;
+
   return (
     <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
       scrolled 
-        ? 'bg-black/80 backdrop-blur-2xl border-b border-emerald-900/30 shadow-[0_4px_30px_rgba(16,185,129,0.05)] py-4' 
-        : 'bg-transparent py-6'
+        ? 'bg-[#000502]/95 backdrop-blur-md border-b border-emerald-950 py-4' 
+        : 'bg-transparent border-b border-transparent py-6'
     }`}>
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         
@@ -57,7 +59,7 @@ export default function Navbar() {
           {isLoaded && user && isListener && (
             <>
               <NavLink href="/home" text="DISCOVER" active={pathname === '/home'} />
-              <NavLink href="/your-story" text="LIBRARY" icon={<Library className="w-3.5 h-3.5" />} active={pathname === '/your-story'} />
+              <NavLink href="/library" text="LIBRARY" icon={<Library className="w-3.5 h-3.5" />} active={pathname === '/library'} />
             </>
           )}
         </div>
