@@ -16,6 +16,7 @@ export default function SubmitStory() {
  const [storyText, setStoryText] = useState('');
  const [mood, setMood] = useState('');
  const [voiceModel, setVoiceModel] = useState('');
+ const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
  const [coverImageUrl, setCoverImageUrl] = useState('');
  const [enhanceWithAI, setEnhanceWithAI] = useState(false);
  const [status, setStatus] = useState<SubmitStatus>('idle');
@@ -38,6 +39,31 @@ export default function SubmitStory() {
       setError('');
 
       try{
+        let finalCoverUrl = undefined;
+        
+        // ── Direct Cloudinary Upload ──
+        if (coverImageFile) {
+          const sigRes = await fetch(`${BACKEND_URL}/api/creator/upload-signature`);
+          if (!sigRes.ok) throw new Error("Failed to get upload signature");
+          const { signature, timestamp, folder, cloudName, apiKey } = await sigRes.json();
+          
+          const formData = new FormData();
+          formData.append("file", coverImageFile);
+          formData.append("api_key", apiKey);
+          formData.append("timestamp", timestamp.toString());
+          formData.append("signature", signature);
+          formData.append("folder", folder);
+
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          
+          if (!uploadRes.ok) throw new Error("Failed to upload image securely");
+          const uploadData = await uploadRes.json();
+          finalCoverUrl = uploadData.secure_url;
+        }
+
         const res = await fetch(`${BACKEND_URL}/api/creator/submit`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -46,7 +72,7 @@ export default function SubmitStory() {
             storyText,
             mood,
             voiceModel,
-            coverImageUrl: coverImageUrl.trim() || undefined,
+            coverImageUrl: finalCoverUrl,
             enhanceWithAI,
             userId,
           })
@@ -169,12 +195,10 @@ export default function SubmitStory() {
                   onChange={e => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setCoverImageUrl(reader.result as string);
-                      };
-                      reader.readAsDataURL(file);
+                      setCoverImageFile(file);
+                      setCoverImageUrl(URL.createObjectURL(file));
                     } else {
+                      setCoverImageFile(null);
                       setCoverImageUrl('');
                     }
                   }}
@@ -195,7 +219,7 @@ export default function SubmitStory() {
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                   <button
                     type="button"
-                    onClick={() => setCoverImageUrl('')}
+                    onClick={() => { setCoverImageFile(null); setCoverImageUrl(''); }}
                     className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-500/30"
                   >
                     <X className="w-3.5 h-3.5" /> Remove

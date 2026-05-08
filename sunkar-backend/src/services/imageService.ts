@@ -26,3 +26,24 @@ export async function uploadImageToCloudinary(base64Image: string, storyId: stri
     );
   });
 }
+
+export function generateUploadSignature() {
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const folder = "sunkar-images";
+  
+  const signature = cloudinary.utils.api_sign_request(
+    {
+      timestamp,
+      folder,
+    },
+    process.env.CLOUDINARY_API_SECRET!
+  );
+
+  return {
+    signature,
+    timestamp,
+    folder,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+    apiKey: process.env.CLOUDINARY_API_KEY!,
+  };
+}

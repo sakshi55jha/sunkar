@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import prisma from "../prisma";
 import { generateAndUploadAudio } from "src/services/audioService";
 import { enhanceStoryText } from "src/services/enhanceService";
-import { uploadImageToCloudinary } from "src/services/imageService";
+import { generateUploadSignature } from "src/services/imageService";
 
 
 // -- Submit story handller --
@@ -26,18 +26,8 @@ if(!title || !storyText || !voiceModel || !userId){
     create: { id: String(userId) },
   });
 
-// Check if coverImageUrl is a base64 string and upload it
+// We now receive the final Cloudinary URL directly from the frontend
 let finalCoverImageUrl = coverImageUrl;
-if (coverImageUrl && coverImageUrl.startsWith('data:image')) {
-  try {
-    // Generate a temporary ID or just use userId for the file name
-    finalCoverImageUrl = await uploadImageToCloudinary(coverImageUrl, String(userId));
-  } catch (error) {
-    console.error("Image upload failed:", error);
-    // Fallback to null if upload fails
-    finalCoverImageUrl = null;
-  }
-}
 
 //creator story record immediately with PROCESSING Status
 //so the creator can see in their dashboard right away
@@ -171,6 +161,17 @@ export async function getStoryByIdHandler(
         return
     }
     res.json(story);
+}
+
+// -- Generate Upload Signature Handler --
+export async function getUploadSignatureHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const signatureData = generateUploadSignature();
+    res.json(signatureData);
+  } catch (error) {
+    console.error("Error generating signature:", error);
+    res.status(500).json({ error: "Failed to generate signature" });
+  }
 }
 
 // --Toggle publish Handler --

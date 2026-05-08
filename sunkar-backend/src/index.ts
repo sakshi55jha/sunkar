@@ -21,6 +21,7 @@ import {
   getPublicStoriesHandler,
   deleteStoryHandler,
   retryStoryHandler,
+  getUploadSignatureHandler,
 } from "./controllers/creatorController";
 
 import { syncUserHandler } from "./controllers/userController";
@@ -42,8 +43,8 @@ const getRateLimitKey = (req: Request, res: Response): string => {
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const timestamp = new Date().toISOString();
@@ -131,6 +132,7 @@ app.post("/api/stories/load-session", loadSessionHandler);
 
 
 // ── Creator Routes ────────────────────────────────────
+app.get("/api/creator/upload-signature",           getUploadSignatureHandler);
 app.post("/api/creator/submit",                    submitStoryHandler);
 app.get("/api/creator/stories",                    getCreatorStoriesHandler);
 app.get("/api/creator/stories/:id",                getStoryByIdHandler);
