@@ -1,7 +1,7 @@
 // ── Imports ─────────────────────────────────────────
 'use client';
 
-import { Headphones, Loader2, Plus, Send, UserCircle2, Bot, User, Trash2, AlertCircle, Clock } from 'lucide-react';
+import { Headphones, Loader2, Plus, Send, UserCircle2, Bot, User, Trash2, AlertCircle, Clock, Menu, X } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 
@@ -297,6 +297,7 @@ export default function Create() {
   const userId = user?.id;
 
   // ── State ─────────────────────────────────────────
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -509,10 +510,28 @@ export default function Create() {
   return (
     <div className="flex h-[calc(100vh-9rem)] w-full max-w-[1440px] mx-auto bg-[#000502] text-white p-4 md:p-6 gap-6 overflow-hidden">
       
-      <aside className="w-80 hidden md:flex flex-col bg-emerald-950/10 border border-emerald-900/20 rounded-[2rem] p-6">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`w-80 flex flex-col bg-[#010603] md:bg-emerald-950/10 border-r border-emerald-900/20 md:border md:rounded-[2rem] p-6 fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between mb-6 md:hidden">
+          <h2 className="text-emerald-500 font-bold tracking-widest uppercase text-xs">Chat History</h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-white/50 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
         <button
-          onClick={handleNewChat}
-          className="flex items-center justify-between w-full p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl hover:bg-emerald-500/20 transition-all group"
+          onClick={() => {
+            handleNewChat();
+            setIsSidebarOpen(false);
+          }}
+          className="flex items-center justify-between w-full p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl hover:bg-emerald-500/20 transition-all group shrink-0"
         >
           <span className="font-bold text-sm">New Chat</span>
           <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
@@ -529,28 +548,28 @@ export default function Create() {
                 label="Today" 
                 items={groupedSessions.today} 
                 activeSessionId={activeSessionId} 
-                onLoadSession={handleLoadSession} 
+                onLoadSession={(id) => { handleLoadSession(id); setIsSidebarOpen(false); }} 
                 onDeleteSession={handleDeleteSession} 
               />
               <StorySidebarGroup 
                 label="Last 7 days" 
                 items={groupedSessions.last7} 
                 activeSessionId={activeSessionId} 
-                onLoadSession={handleLoadSession} 
+                onLoadSession={(id) => { handleLoadSession(id); setIsSidebarOpen(false); }} 
                 onDeleteSession={handleDeleteSession} 
               />
               <StorySidebarGroup 
                 label="Last 30 days" 
                 items={groupedSessions.last30} 
                 activeSessionId={activeSessionId} 
-                onLoadSession={handleLoadSession} 
+                onLoadSession={(id) => { handleLoadSession(id); setIsSidebarOpen(false); }} 
                 onDeleteSession={handleDeleteSession} 
               />
               <StorySidebarGroup 
                 label="Older" 
                 items={groupedSessions.older} 
                 activeSessionId={activeSessionId} 
-                onLoadSession={handleLoadSession} 
+                onLoadSession={(id) => { handleLoadSession(id); setIsSidebarOpen(false); }} 
                 onDeleteSession={handleDeleteSession} 
               />
             </>
@@ -569,6 +588,16 @@ export default function Create() {
       </aside>
 
       <main className="flex-1 flex flex-col bg-emerald-950/5 border border-emerald-900/10 rounded-[2rem] relative overflow-hidden">
+        
+        {/* Mobile Header for Sidebar Toggle */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-emerald-900/10 bg-emerald-950/10 shrink-0">
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-emerald-500 hover:text-emerald-400">
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="text-[10px] font-bold tracking-widest text-emerald-800 uppercase">Sunkar GPT</span>
+          <div className="w-9" /> {/* spacer for balance */}
+        </header>
+
         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">

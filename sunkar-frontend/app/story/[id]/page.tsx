@@ -21,6 +21,7 @@ interface Story {
   enhancedText: string | null;
   mood:         string | null;
   audioUrl:     string | null;
+  coverImageUrl:string | null;
   status:       'PROCESSING' | 'READY' | 'FAILED';
   isPublished:  boolean;
   userId:       string;
@@ -148,8 +149,9 @@ const storyId = params?.id as string;
     window.location.href = '/dashboard';
   }
 
-  const coverImage = story ? FALLBACK_IMAGES[story.id.charCodeAt(0) % FALLBACK_IMAGES.length]
-    : FALLBACK_IMAGES[0];
+  const coverImage = story?.coverImageUrl || (story 
+    ? FALLBACK_IMAGES[story.id.charCodeAt(0) % FALLBACK_IMAGES.length]
+    : FALLBACK_IMAGES[0]);
 
       const displayText = story?.enhancedText || story?.originalText || '';
 
