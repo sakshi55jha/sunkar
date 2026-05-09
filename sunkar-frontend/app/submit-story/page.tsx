@@ -108,7 +108,7 @@ export default function SubmitStory() {
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/20 border border-emerald-900/30 rounded-full">
             <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
             <span className="text-emerald-500 text-sm font-bold tracking-widest uppercase">
-              Generating Audio...
+              Generating Audio......
             </span>
           </div>
                    <Link
