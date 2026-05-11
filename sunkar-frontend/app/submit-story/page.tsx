@@ -111,7 +111,7 @@ export default function SubmitStory() {
               Generating Audio......
             </span>
           </div>
-                   <Link
+          <Link
             href="/your-story"
             className="px-10 py-4 bg-emerald-950/20 text-emerald-500 hover:text-white hover:bg-emerald-900/50 border border-emerald-900/50 rounded-full font-bold tracking-widest uppercase text-sm transition-all"
           >

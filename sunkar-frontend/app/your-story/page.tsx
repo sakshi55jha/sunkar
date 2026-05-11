@@ -6,7 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import {
   Edit2, Trash2, Headphones, Play, Library,
-  Loader2, Globe, EyeOff, RefreshCw, AlertCircle, Clock
+  Loader2, Globe, EyeOff, RefreshCw, AlertCircle, Clock, Download
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
@@ -199,6 +199,38 @@ export default function YourStory() {
     }
   };
 
+  // ── Download audio ───────────────────────
+const handleDownload = async (
+  e: React.MouseEvent,
+  story: CreatorStory
+) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!story.audioUrl) return;
+
+  try {
+    const response = await fetch(story.audioUrl);
+    const blob = await response.blob();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+
+    // filename
+    a.download = `${story.title.replace(/\s+/g, '-').toLowerCase()}.mp3`;
+
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Download failed:', error);
+  }
+};
+
   // ─────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────
@@ -262,10 +294,10 @@ export default function YourStory() {
             Create Your First Story
           </Link>
         </div>
-      )}
-
-      {/* Stories grid */}
-      {!loading && stories.length > 0 && (
+          ) : (
+        <>
+          {/* Stories grid */}
+          {!loading && stories.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
        {stories.map(story => (
   <Link
@@ -357,6 +389,17 @@ export default function YourStory() {
                       : <Trash2 className="w-4 h-4" />
                     }
                   </button>
+
+                  {/* Download audio */}
+{story.status === 'READY' && story.audioUrl && (
+  <button
+    onClick={(e) => handleDownload(e, story)}
+    className="p-3 bg-black hover:bg-emerald-950/20 text-emerald-800 hover:text-emerald-400 rounded-2xl border border-emerald-900/30 transition-all"
+    title="Download Audio"
+  >
+    <Download className="w-4 h-4" />
+  </button>
+)}
                 </div>
               </div>
 
@@ -413,7 +456,9 @@ export default function YourStory() {
            </Link>
           ))}
         </div>
-      )}
-    </div>
+        )}
+      </>
+    )}
+  </div>
   );
 }
