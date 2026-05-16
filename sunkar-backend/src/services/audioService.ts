@@ -7,33 +7,33 @@ import { Readable } from "stream";
 
 const VOICE_MAP: Record<string, string> = {
   // ── English (India) Premium Story Voices ──
-  "en-female-soft": "en-IN-Chirp3-HD-Achernar",
-  "en-female-warm": "en-IN-Chirp3-HD-Aoede",
-  "en-female-bright": "en-IN-Chirp3-HD-Zephyr",
-  "en-female-deep": "en-IN-Chirp3-HD-Sulafat",
+  "en-female-soft": "en-IN-Neural2-D",
+  "en-female-warm": "en-IN-Neural2-A",
+  "en-female-bright": "en-IN-Neural2-A",
+  "en-female-deep": "en-IN-Neural2-D",
 
-  "en-male-deep": "en-IN-Chirp3-HD-Achird",
-  "en-male-storyteller": "en-IN-Chirp3-HD-Sadachbia",
-  "en-male-calm": "en-IN-Chirp3-HD-Orus",
-  "en-male-rich": "en-IN-Chirp3-HD-Algenib",
+  "en-male-deep": "en-IN-Neural2-C",
+  "en-male-storyteller": "en-IN-Neural2-B",
+  "en-male-calm": "en-IN-Neural2-B",
+  "en-male-rich": "en-IN-Neural2-C",
 
   // ── Hindi Premium Story Voices ──
-  "hi-female-soft": "hi-IN-Chirp3-HD-Achernar",
-  "hi-female-warm": "hi-IN-Chirp3-HD-Aoede",
-  "hi-female-bright": "hi-IN-Chirp3-HD-Zephyr",
-  "hi-female-deep": "hi-IN-Chirp3-HD-Sulafat",
+  "hi-female-soft": "hi-IN-Neural2-D",
+  "hi-female-warm": "hi-IN-Neural2-A",
+  "hi-female-bright": "hi-IN-Neural2-A",
+  "hi-female-deep": "hi-IN-Neural2-D",
 
-  "hi-male-deep": "hi-IN-Chirp3-HD-Achird",
-  "hi-male-storyteller": "hi-IN-Chirp3-HD-Sadachbia",
-  "hi-male-calm": "hi-IN-Chirp3-HD-Orus",
-  "hi-male-rich": "hi-IN-Chirp3-HD-Algenib",
+  "hi-male-deep": "hi-IN-Neural2-C",
+  "hi-male-storyteller": "hi-IN-Neural2-B",
+  "hi-male-calm": "hi-IN-Neural2-B",
+  "hi-male-rich": "hi-IN-Neural2-C",
 };
 
 const DEFAULT_VOICE = "en-female-soft";
 
 const MAX_CHARACTERS = 5000;
 
-const ttsClient = new textToSpeech.TextToSpeechClient();
+const ttsClient = new textToSpeech.v1beta1.TextToSpeechClient();
 
     cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -89,7 +89,7 @@ export async function generateAndUploadAudio(
         );
     }
   
-     const voiceName = VOICE_MAP[voiceModel] || VOICE_MAP[DEFAULT_VOICE];
+     const voiceName = VOICE_MAP[voiceModel] ?? VOICE_MAP[DEFAULT_VOICE] ?? "en-IN-Neural2-D";
     const [response] = await ttsClient.synthesizeSpeech({
         input: {text: storyText},
         voice: {
@@ -98,7 +98,7 @@ export async function generateAndUploadAudio(
         },
         audioConfig: {
             audioEncoding: "MP3",
-            speakingRate: 0.88,
+            speakingRate: 1.0,
             volumeGainDb: 1.0,
             
         }

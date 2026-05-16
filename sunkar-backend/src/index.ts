@@ -27,7 +27,7 @@ import {
 import { syncUserHandler } from "./controllers/userController";
 
 // ── Constants ─────────────────────────────────────────
-const PORT = 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const GLOBAL_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const STORY_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const BURST_LIMIT_WINDOW_MS = 10 * 1000;
@@ -36,13 +36,15 @@ const BURST_LIMIT_WINDOW_MS = 10 * 1000;
 
 // Extracts the reliable user identifier for rate limiting
 const getRateLimitKey = (req: Request, res: Response): string => {
-  return req.body?.userId ?? ipKeyGenerator(req, res) ?? "unknown";
+  return req.body?.userId ? String(req.body.userId) : ipKeyGenerator(req.ip ?? "unknown");
 };
 
 // ── Middlewares ─────────────────────────────────────────
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || true,
+}));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
@@ -66,7 +68,7 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: getRateLimitKey,
   handler: (req: Request, res: Response) => {
-    console.warn(`⚠️  Global rate limit hit by: ${getRateLimitKey(req)}`);
+    console.warn(`⚠️  Global rate limit hit by: ${getRateLimitKey(req, res)}`);
     res.status(429).json({
       error: "Too many requests. Please slow down and try again in a few minutes.",
       retryAfter: Math.ceil(GLOBAL_LIMIT_WINDOW_MS / 1000),
@@ -81,7 +83,7 @@ const storyLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: getRateLimitKey,
   handler: (req: Request, res: Response) => {
-    console.warn(`🚫 Story rate limit hit by: ${getRateLimitKey(req)}`);
+    console.warn(`🚫 Story rate limit hit by: ${getRateLimitKey(req, res)}`);
     res.status(429).json({
       error: "You've generated a lot of stories! Take a break and come back in an hour.",
       retryAfter: Math.ceil(STORY_LIMIT_WINDOW_MS / 1000),
@@ -96,7 +98,7 @@ const burstLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: getRateLimitKey,
   handler: (req: Request, res: Response) => {
-    console.warn(`⚡ Burst rate limit hit by: ${getRateLimitKey(req)}`);
+    console.warn(`⚡ Burst rate limit hit by: ${getRateLimitKey(req, res)}`);
     res.status(429).json({
       error: "Slow down! Wait a few seconds before generating another story.",
       retryAfter: Math.ceil(BURST_LIMIT_WINDOW_MS / 1000),

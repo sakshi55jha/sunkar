@@ -1,6 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
+type SessionMetadata = {
+  role?: string;
+};
+
 // Routes that require login
 const isProtectedUserRoute = createRouteMatcher([
   '/story(.*)',
@@ -18,7 +22,7 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
   console.log(sessionClaims);
   // sessionClaims.metadata needs to be configured in Clerk Dashboard (jwtTemplates)
-  const role = (sessionClaims?.metadata as any)?.role;
+  const role = (sessionClaims?.metadata as SessionMetadata | undefined)?.role;
 
   // Not logged in — redirect to landing page
   if (!userId && (isProtectedUserRoute(req) || isProtectedCreatorRoute(req))) {

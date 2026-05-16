@@ -48,10 +48,10 @@ export default async function Home() {
           <Headphones className="w-3.5 h-3.5" /> Audio-First Storytelling
         </div>
         <h1 className="text-5xl md:text-7xl font-sans font-medium tracking-tight leading-[1.1]">
-          <span className="text-white">Immersive stories,</span>{' '}
+          <span className="text-white">Plug in, </span>{' '}
           <br />
           <span className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            crafted to be heard.
+            Feel the story.
           </span>
         </h1>
         <p className="text-white/60 text-lg max-w-2xl mt-8 font-normal leading-relaxed">

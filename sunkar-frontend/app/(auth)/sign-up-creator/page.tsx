@@ -19,10 +19,8 @@ const getClerkErrorMessage = (err: unknown, fallback: string) => {
 
 export default function SignUpCreator() {
   const { signUp } = useSignUp();
-  const { loaded, client, setActive } = useClerk();
+  const { loaded, client } = useClerk();
   const router = useRouter();
-
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +42,7 @@ export default function SignUpCreator() {
     setError('');
 
     try {
-      await signUp.create({
+      const createResult = await signUp.create({
         emailAddress: email,
         password,
         firstName,
@@ -52,9 +50,10 @@ export default function SignUpCreator() {
         unsafeMetadata: { role: 'creator' },
       });
 
-      await signUp.prepareEmailAddressVerification({
-        strategy: 'email_code',
-      });
+      if (createResult.error) throw createResult.error;
+
+      const emailCodeResult = await signUp.verifications.sendEmailCode();
+      if (emailCodeResult.error) throw emailCodeResult.error;
 
       setVerifying(true);
     } catch (err: unknown) {
@@ -95,35 +94,13 @@ export default function SignUpCreator() {
     setError('');
 
     try {
-      const result = await signUp.attemptEmailAddressVerification({
-        code,
-      });
+      const verifyResult = await signUp.verifications.verifyEmailCode({ code });
+      if (verifyResult.error) throw verifyResult.error;
 
-      if (result.status !== 'complete') {
-        setError('Verification incomplete');
-        return;
-      }
+      const finalizeResult = await signUp.finalize();
+      if (finalizeResult.error) throw finalizeResult.error;
 
-      await setActive({ session: result.createdSessionId });
-
-      try {
-        await fetch(`${backendUrl}/api/users/sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id: result.createdUserId,
-            email,
-            name: `${firstName} ${lastName}`.trim(),
-            role: 'creator',
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to sync creator:", err);
-      }
-
-      router.push('/dashboard');
+      router.push('/auth-redirect');
     } catch (err: unknown) {
       setError(getClerkErrorMessage(err, 'Invalid verification code'));
     } finally {

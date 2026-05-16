@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Layers, LogIn, LayoutDashboard, PenTool, Library, Headphones, Menu, X } from 'lucide-react';
+import { Layers, LayoutDashboard, PenTool, Library, Headphones, Menu, X } from 'lucide-react';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 
@@ -24,11 +24,6 @@ export default function Navbar() {
   const role = user?.unsafeMetadata?.role || user?.publicMetadata?.role;
   const isCreator = role === 'creator';
   const isListener = role === 'user' || role === 'listener';
-
-  // Close mobile menu when pathname changes
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
 
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
@@ -112,7 +107,6 @@ export default function Navbar() {
               )}
               <div className="pl-2 md:border-l border-emerald-900/30">
                 <UserButton 
-                  afterSignOutUrl="/"
                   appearance={{
                     elements: {
                       avatarBox: "w-9 h-9 ring-2 ring-emerald-900/50 hover:ring-emerald-500/50 transition-all"

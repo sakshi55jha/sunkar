@@ -1,6 +1,6 @@
 'use client';
 
-import { useSignIn, useSignUp, useClerk } from '@clerk/nextjs';
+import { useSignUp, useClerk } from '@clerk/nextjs';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -18,12 +18,9 @@ const getClerkErrorMessage = (err: unknown, fallback: string) => {
 };
 
 export default function SignUpListener() {
- const { isLoaded, signUp } = useSignUp();
-const { signIn, isLoaded: isSignInLoaded } = useSignIn();
-const { setActive, loaded, client } = useClerk();
+ const { signUp } = useSignUp();
+const { loaded, client } = useClerk();
   const router = useRouter();
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
-
   // console.log("signUp:", signUp);
 
   const [email, setEmail] = useState('');
@@ -47,7 +44,7 @@ const { setActive, loaded, client } = useClerk();
     setError("");
 
     try {
-      await signUp.create({
+      const createResult = await signUp.create({
         emailAddress: email,
         password,
         firstName,
@@ -55,16 +52,10 @@ const { setActive, loaded, client } = useClerk();
         unsafeMetadata: { role: "user" },
       });
 
-      if (typeof signUp.prepareEmailAddressVerification === 'function') {
-        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      } else if (typeof signUp.prepareVerification === 'function') {
-        await signUp.prepareVerification({ strategy: 'email_code' });
-      } else if (typeof (signUp as any).verifications?.sendEmailCode === 'function') {
-        await (signUp as any).verifications.sendEmailCode({ strategy: 'email_code' });
-      } else {
-        console.error("signUp object keys:", Object.keys(signUp));
-        throw new Error("Clerk SDK error: No email verification method found on signUp");
-      }
+      if (createResult.error) throw createResult.error;
+
+      const emailCodeResult = await signUp.verifications.sendEmailCode();
+      if (emailCodeResult.error) throw emailCodeResult.error;
       setVerifying(true);
     } catch (err: unknown) {
       setError(getClerkErrorMessage(err, 'Signup failed'));
@@ -106,53 +97,16 @@ const { setActive, loaded, client } = useClerk();
     setError('');
 
     try {
-      let result: any;
-      if (typeof signUp.attemptEmailAddressVerification === 'function') {
-        result = await signUp.attemptEmailAddressVerification({ code });
-      } else if (typeof signUp.attemptVerification === 'function') {
-        result = await signUp.attemptVerification({ strategy: 'email_code', code });
-      } else if (typeof (signUp as any).verifications?.verifyEmailCode === 'function') {
-        result = await (signUp as any).verifications.verifyEmailCode({ code });
-      } else {
-        throw new Error("Clerk SDK error: No verify code method found on signUp");
-      }
+      const verifyResult = await signUp.verifications.verifyEmailCode({ code });
+      if (verifyResult.error) throw verifyResult.error;
 
-      const finalStatus = result.status || signUp.status;
-      const finalSessionId = result.createdSessionId || signUp.createdSessionId;
-      const finalUserId = result.createdUserId || signUp.createdUserId;
-  
-      
-      if (finalStatus === 'complete') {
-          // Sync user to DB
-           await setActive({ session: finalSessionId });
-        try {
-          const res = await fetch(`${backendUrl}/api/users/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: finalUserId,
-              email: email,
-              name: `${firstName} ${lastName}`.trim(),
-              role: 'user',
-            }),
-          });
-          if (!res.ok) {
-            const errorText = await res.text();
-            alert(`Backend Sync Error: ${errorText}. Check backend terminal!`);
-          }
-        } catch (err) {
-          console.error("Failed to sync user to DB", err);
-          alert(`Network error: Could not reach backend at ${backendUrl}. Is it running?`);
-        }
+      const finalizeResult = await signUp.finalize();
+      if (finalizeResult.error) throw finalizeResult.error;
 
-
-      
-
-        router.push('/home');
-      }
-    } catch (err: any) {
+      router.push('/auth-redirect');
+    } catch (err: unknown) {
       console.error("VERIFY ERROR:", err);
-      setError(err?.errors?.[0]?.message || err?.message || "Verification failed");
+      setError(getClerkErrorMessage(err, "Verification failed"));
     } finally {
       setLoading(false);
     }

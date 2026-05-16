@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import prisma from "../prisma";
-import { generateAndUploadAudio } from "src/services/audioService";
-import { enhanceStoryText } from "src/services/enhanceService";
-import { generateUploadSignature } from "src/services/imageService";
+import { generateAndUploadAudio } from "../services/audioService";
+import { enhanceStoryText } from "../services/enhanceService";
+import { generateUploadSignature } from "../services/imageService";
 
 
 // -- Submit story handller --
@@ -143,7 +143,7 @@ export async function getCreatorStoriesHandler(
 export async function getStoryByIdHandler(
     req: Request, res: Response
 ): Promise<void> {
-    const { id } = req.params;
+    const id = String(req.params.id ?? "");
 
     const story = await prisma.creatorStory.findUnique({
         where: { id },
@@ -186,7 +186,7 @@ export async function togglePublishHandler(
     req: Request,
     res: Response
 ): Promise<void> {
-    const {id} = req.params;
+    const id = String(req.params.id ?? "");
     const {isPublished, userId} = req.body;
 
     const story = await prisma.creatorStory.findUnique(
@@ -255,7 +255,7 @@ export async function getPublicStoriesHandler(
 export async function deleteStoryHandler(
     req: Request, res: Response
 ): Promise<void>{
-    const {id} = req.params;
+    const id = String(req.params.id ?? "");
     const {userId} = req.body;
 
     const story = await prisma.creatorStory.findUnique({where : {id}});
@@ -281,7 +281,7 @@ export async function deleteStoryHandler(
 export async function retryStoryHandler(
     req: Request, res: Response
 ): Promise<void>{
-    const {id} = req.params;
+    const id = String(req.params.id ?? "");
     const {userId} = req.body;
 
     const story = await prisma.creatorStory.findUnique({where : {id}});
@@ -298,6 +298,7 @@ export async function retryStoryHandler(
 
     if(story.status !== "FAILED"){
         res.status(400).json({error: "Only failed stories can be retried"})
+        return;
     }
 
     await prisma.creatorStory.update({

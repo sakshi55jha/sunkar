@@ -1,6 +1,6 @@
 'use client';
 
-import { useClerk } from '@clerk/nextjs';
+import { useClerk, useSignIn } from '@clerk/nextjs';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -10,13 +10,19 @@ type ClerkErrorLike = {
   errors?: Array<{ message?: string }>;
 };
 
+type SignInResult = {
+  status?: string;
+  createdSessionId?: string | null;
+};
+
 const getClerkErrorMessage = (err: unknown, fallback: string) => {
   const message = (err as ClerkErrorLike)?.errors?.[0]?.message;
   return message || fallback;
 };
 
 export default function SignInPage() {
-const { loaded, client } = useClerk();
+const { loaded, client, setActive } = useClerk();
+  const { signIn } = useSignIn();
   const router = useRouter();
 
   const [email, setEmail]           = useState('');
@@ -27,7 +33,7 @@ const { loaded, client } = useClerk();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loaded) return;
+    if (!loaded || !signIn) return;
     setLoading(true);
     setError('');
 
@@ -35,7 +41,7 @@ const { loaded, client } = useClerk();
       const result = await signIn.create({
         identifier: email,
         password,
-      });
+      }) as SignInResult;
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });

@@ -288,7 +288,7 @@ const handleDownload = async (
             No stories yet
           </p>
           <Link
-            href="/submit"
+            href="/submit-story"
             className="px-8 py-3 bg-emerald-950/20 text-emerald-500 hover:text-white hover:bg-emerald-900/50 border border-emerald-900/50 rounded-full font-bold tracking-widest uppercase text-xs transition-all"
           >
             Create Your First Story

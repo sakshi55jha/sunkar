@@ -44,7 +44,7 @@ export const toggleLibraryHandler = async (req: Request, res: Response): Promise
 
 export const getLibraryHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = String(req.params.userId ?? "");
 
     if (!userId) {
       res.status(400).json({ error: 'Missing userId' });

@@ -28,6 +28,10 @@ interface Story {
   createdAt:    string;
 }
 
+interface SavedLibraryItem {
+  creatorStoryId: string;
+}
+
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -91,7 +95,7 @@ const storyId = params?.id as string;
       const res = await fetch(`${BACKEND_URL}/api/library/${userId}`);
       if (!res.ok) return;
       const data = await res.json();
-      setIsSaved(data.some((item: any) => item.creatorStoryId === storyId));
+      setIsSaved((data as SavedLibraryItem[]).some((item) => item.creatorStoryId === storyId));
     } catch {
       // ignore
     }
@@ -184,7 +188,7 @@ const storyId = params?.id as string;
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({userId: userId}),
     });
-    window.location.href = '/dashboard';
+    window.location.href = '/your-story';
   }
 
   const coverImage = story?.coverImageUrl || (story 

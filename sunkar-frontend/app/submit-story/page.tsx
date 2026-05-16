@@ -20,7 +20,6 @@ export default function SubmitStory() {
  const [coverImageUrl, setCoverImageUrl] = useState('');
  const [enhanceWithAI, setEnhanceWithAI] = useState(false);
  const [status, setStatus] = useState<SubmitStatus>('idle');
- const [storyId, setStoryId] = useState('');
  const [error, setError] = useState('');
 
   const handleSubmit = async ()=>{
@@ -39,7 +38,7 @@ export default function SubmitStory() {
       setError('');
 
       try{
-        let finalCoverUrl = undefined;
+        let finalCoverUrl: string | undefined = undefined;
         
         // ── Direct Cloudinary Upload ──
         if (coverImageFile) {
@@ -82,10 +81,9 @@ export default function SubmitStory() {
 
         if(!res.ok)throw new Error(data.error || "Submission Failed");
 
-        setStoryId(data.storyId);
         setStatus('success');
-      } catch(err: any){
-        setError(err.message || 'Something went Wrong');
+      } catch(err: unknown){
+        setError(err instanceof Error ? err.message : 'Something went Wrong');
         setStatus('error');
       }
   };

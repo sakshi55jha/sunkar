@@ -74,8 +74,8 @@ export async function generateStoryStreamHandler(req: Request, res: Response): P
     // Extract Title for DB
     const titleMatch = fullTextForDB.match(/\[TITLE\]\s*\n(.+)/);
     const titleLine = titleMatch
-      ? titleMatch[1].trim()
-      : fullTextForDB.split('\n')[0].replace(/\[TITLE\]|\*/g, '').trim();
+      ? (titleMatch[1] ?? "").trim()
+      : (fullTextForDB.split('\n')[0] ?? "").replace(/\[TITLE\]|\*/g, '').trim();
 
     // Save to Database
     await prisma.story.create({
@@ -98,12 +98,13 @@ export async function generateStoryStreamHandler(req: Request, res: Response): P
 /**
  * 3. NORMAL HANDLER (NON-STREAMING)
  */
-export async function generateStoryHandler(req: Request, res: Response) {
+export async function generateStoryHandler(req: Request, res: Response): Promise<void> {
   try {
     const { prompt, userId, sessionId } = req.body;
 
     if (!prompt || !userId) {
-      return res.status(400).json({ error: "prompt & userId required" });
+      res.status(400).json({ error: "prompt & userId required" });
+      return;
     }
 
     const activeSessionId = sessionId || String(userId);
@@ -121,8 +122,8 @@ export async function generateStoryHandler(req: Request, res: Response) {
 
     const titleMatch = fullText.match(/\[TITLE\]\s*\n(.+)/);
     const titleLine = titleMatch
-      ? titleMatch[1].trim()
-      : fullText.split('\n')[0].replace(/\*/g, '').trim();
+      ? (titleMatch[1] ?? "").trim()
+      : (fullText.split('\n')[0] ?? "").replace(/\*/g, '').trim();
 
     const story = await prisma.story.create({
       data: {
@@ -144,7 +145,7 @@ export async function generateStoryHandler(req: Request, res: Response) {
  * 4. CLEAR SESSION HANDLER
  * Call this when user clicks "New Story" or "Start Fresh" on the frontend.
  */
-export async function clearSessionHandler(req: Request, res: Response) {
+export async function clearSessionHandler(req: Request, res: Response): Promise<void> {
   try {
     const { sessionId, userId } = req.body;
     const activeSessionId = sessionId || String(userId);
@@ -152,17 +153,20 @@ export async function clearSessionHandler(req: Request, res: Response) {
     clearSession(activeSessionId);
     console.log(`🧹 Session cleared: ${activeSessionId}`);
     
-    return res.json({ success: true, message: "Session cleared" });
+    res.json({ success: true, message: "Session cleared" });
+    return;
   } catch (err: any) {
     console.error("❌ Error clearing session:", err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
+    return;
   }
 }
 
-export const loadSessionHandler = (req: Request, res: Response) => {
+export const loadSessionHandler = (req: Request, res: Response): void => {
   const { sessionId, messages } = req.body;
   if (!sessionId || !messages) {
-    return res.status(400).json({ error: "sessionId and messages required" });
+    res.status(400).json({ error: "sessionId and messages required" });
+    return;
   }
 
   // Rebuild backend memory from the messages array sent by frontend
